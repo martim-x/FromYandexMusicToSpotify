@@ -3,3 +3,6 @@
 .flaskenv*
 !.env.project
 !.env.vault
+credentials
+__pycache__
+history.db

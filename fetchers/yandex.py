@@ -1,15 +1,16 @@
-"""fetchers/yandex.py — получает куки с music.yandex.ru."""
+"""fetchers/yandex.py - получает куки с music.yandex.ru."""
 
 import time
 
 import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from core.exceptions import FetcherError
 from core.models import YandexCredentials
 from fetchers.base import BaseFetcher
+
+MUSIC_URL = "https://music.yandex.ru"
+POLL_SECS = 2
+SESSION_KEYS = {"Session_id", "yandex_login", "L"}
 
 
 class YandexFetcher(BaseFetcher):
@@ -24,39 +25,64 @@ class YandexFetcher(BaseFetcher):
     def _cookies_as_str(self, cookies: list[dict]) -> str:
         return "; ".join(f"{c['name']}={c['value']}" for c in cookies)
 
-    def fetch(self, login: str, password: str, **_) -> dict:
+    def _is_logged_in(self, driver: uc.Chrome) -> bool:
+        names = {c["name"] for c in driver.get_cookies()}
+        return bool(names & SESSION_KEYS)
+
+    def _detect_auth_method(self, driver: uc.Chrome) -> str:
         """
-        Логинится на Яндекс, переходит на music.yandex.ru,
-        возвращает только строку куков. Пароль не сохраняется.
+        Пытается определить каким способом прошла авторизация.
+        Возвращает строку для auth_log.
         """
+        try:
+            src = driver.page_source.lower()
+            if "push" in src or "уведомлени" in src:
+                return "push_notification"
+            if "phone" in src or "телефон" in src or "смс" in src:
+                return "phone"
+        except Exception:
+            pass
+        return "cookie"
+
+    def fetch(self, **_) -> dict:
+        """
+        Открывает браузер на music.yandex.ru.
+        Ждёт бесконечно пока пользователь не залогинится.
+        Записывает событие в auth_log.
+        """
+        from db.base import log_auth_event
+
         driver = self._build_driver()
-        wait = WebDriverWait(driver, 20)
 
         try:
-            print("[yandex_fetcher] логин...")
-            driver.get("https://passport.yandex.ru/auth")
+            driver.get(MUSIC_URL)
+            print("[yandex_fetcher] браузер открыт")
+            print("[yandex_fetcher] войди в аккаунт — скрипт ждёт...")
 
-            wait.until(EC.presence_of_element_located((By.NAME, "login")))
-            driver.find_element(By.NAME, "login").send_keys(login)
-            driver.find_element(By.XPATH, "//button[@type='submit']").click()
+            while True:
+                try:
+                    if self._is_logged_in(driver):
+                        break
+                except Exception:
+                    pass
+                time.sleep(POLL_SECS)
 
-            wait.until(EC.presence_of_element_located((By.NAME, "passwd")))
-            driver.find_element(By.NAME, "passwd").send_keys(password)
-            driver.find_element(By.XPATH, "//button[@type='submit']").click()
-
-            wait.until(EC.url_contains("yandex.ru"))
-            time.sleep(2)
-
-            driver.get("https://music.yandex.ru")
-            time.sleep(3)
-
+            method = self._detect_auth_method(driver)
             cookie_str = self._cookies_as_str(driver.get_cookies())
 
             creds = YandexCredentials(cookie=cookie_str)
             data = creds.model_dump()
 
             self.save_buffer(data)
-            print(f"[yandex_fetcher] готово — куки получены")
+
+            # Пишем в auth_log
+            log_auth_event(
+                provider="yandex",
+                method=method,
+                note="login successful — session cookies captured",
+            )
+
+            print(f"[yandex_fetcher] готово — метод: {method}")
             return data
 
         except Exception as e:

@@ -1,4 +1,4 @@
-"""fetchers/spotify.py — OAuth 2.0 токен для Spotify."""
+"""fetchers/spotify.py - OAuth 2.0 токен для Spotify."""
 
 import os
 import webbrowser
@@ -6,6 +6,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from core.exceptions import FetcherError
 from core.models import SpotifyCredentials
@@ -13,8 +16,16 @@ from fetchers.base import BaseFetcher
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
-REDIRECT_URI = "http://localhost:8888/callback"
+REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "user-library-modify user-library-read"
+
+webbrowser.register(
+    "chrome",
+    None,
+    webbrowser.BackgroundBrowser(
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    ),
+)
 
 
 class _CallbackHandler(BaseHTTPRequestHandler):
@@ -25,18 +36,29 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         _CallbackHandler.code = params.get("code", [None])[0]
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"OK can close this tab")
+        self.wfile.write(b"OK - you can close this tab")
 
     def log_message(self, *_):
-        pass  # заглушаем вывод сервера
+        pass
 
 
 class SpotifyFetcher(BaseFetcher):
     provider = "spotify"
 
     def fetch(self, **_) -> dict:
-        client_id = os.environ["SPOTIFY_CLIENT_ID"]
-        client_secret = os.environ["SPOTIFY_CLIENT_SECRET"]
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+
+        if not client_id or not client_secret:
+            raise FetcherError(
+                "\nSPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET не найдены в .env\n"
+                "1. Зайди на https://developer.spotify.com/dashboard\n"
+                "2. Создай приложение, скопируй Client ID и Client Secret\n"
+                "3. Добавь в .env:\n"
+                "   SPOTIFY_CLIENT_ID=xxx\n"
+                "   SPOTIFY_CLIENT_SECRET=xxx\n"
+                "   SPOTIFY_REDIRECT_URI=http://localhost:8888/callback"
+            )
 
         params = urlencode(
             {
@@ -46,7 +68,12 @@ class SpotifyFetcher(BaseFetcher):
                 "scope": SCOPE,
             }
         )
-        webbrowser.open(f"{SPOTIFY_AUTH_URL}?{params}")
+        url = f"{SPOTIFY_AUTH_URL}?{params}"
+        try:
+            chrome = webbrowser.get("chrome")
+            chrome.open(url)
+        except Exception:
+            webbrowser.open(url)
         print("[spotify_fetcher] браузер открыт — жди авторизации...")
 
         server = HTTPServer(("localhost", 8888), _CallbackHandler)
