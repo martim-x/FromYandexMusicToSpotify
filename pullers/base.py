@@ -1,19 +1,15 @@
-"""fetchers/base.py — базовый fetcher с буферной логикой."""
+"""pullers/base.py - базовый puller с буферной логикой."""
 
 import json
 from pathlib import Path
 
 from core.exceptions import BufferEmptyError
-from core.interfaces import AbstractFetcher
+from core.interfaces import AbstractPuller
 
 CREDS_DIR = Path("credentials")
 
 
-class BaseFetcher(AbstractFetcher):
-    """
-    Общая логика буфера. Подклассы реализуют только fetch().
-    """
-
+class BasePuller(AbstractPuller):
     provider: str = ""
 
     @property
@@ -23,11 +19,9 @@ class BaseFetcher(AbstractFetcher):
 
     def save_buffer(self, data: dict) -> None:
         self.buffer_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
-        print(f"[{self.provider}_fetcher] буфер сохранён → {self.buffer_path}")
+        print(f"[{self.provider}_puller] буфер → {self.buffer_path}")
 
     def load_buffer(self) -> dict:
         if not self.buffer_path.exists():
-            raise BufferEmptyError(
-                f"Буфер не найден: {self.buffer_path}. Сначала запусти -f."
-            )
+            raise BufferEmptyError(f"буфер не найден: {self.buffer_path} — запусти -f")
         return json.loads(self.buffer_path.read_text())

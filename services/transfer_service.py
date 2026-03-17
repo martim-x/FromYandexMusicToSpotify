@@ -26,7 +26,8 @@ from services.yandex_api import get_tracks
 
 
 def _kind_from_url(url: str) -> str:
-    m = re.search(r"/playlists/(\d+)", url)
+    """Извлекает kind из URL любого формата Яндекс плейлиста."""
+    m = re.search(r"/playlists/([^\s?&#/]+)", url)
     return m.group(1) if m else url.strip()
 
 

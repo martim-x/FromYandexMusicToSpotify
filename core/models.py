@@ -8,11 +8,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-# ── Буфер (то что fetcher кладёт в JSON файл) ────────────────────────
+# ── Буфер (то что puller кладёт в JSON файл) ────────────────────────
 
 
 class YandexCredentials(BaseModel):
     cookie: str = Field(..., min_length=10, description="Строка куков music.yandex.ru")
+    uid: str | None = Field(None, description="yandex_uid из куков")
     expired: bool = False
 
 
@@ -52,16 +53,17 @@ class VersionSchema(BaseModel):
 class CredentialSchema(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     data: dict
+    data_hash: str = ""  # sha256 от данных — для дедупликации
     provider_id: UUID
     version_id: UUID
 
     model_config = {"from_attributes": True}
 
 
-# ── Результат --history ───────────────────────────────────────────────
+# ── Результат --archive ───────────────────────────────────────────────
 
 
-class HistoryRow(BaseModel):
+class ArchiveRow(BaseModel):
     version_id: UUID
     timestamp: datetime
     provider: str

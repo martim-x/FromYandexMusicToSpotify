@@ -1,4 +1,4 @@
-"""db/repository.py — реализация репозиториев (Repository pattern)."""
+"""db/repository.py — Repository pattern. Один класс = одна таблица."""
 
 from uuid import UUID
 
@@ -6,22 +6,17 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from core.interfaces import AbstractCredentialRepository
-from core.models import CredentialSchema, HistoryRow, VersionSchema
+from core.models import ArchiveRow, CredentialSchema
 from db.models import Credential, Provider, Version
 
 
-def _log(msg: str) -> None:
-    print(f"[repository] {msg}")
-
-
 class VersionRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     def add(self, version: Version) -> Version:
         self.session.add(version)
         self.session.flush()
-        _log(f"version добавлена → {version.id}")
         return version
 
     def get(self, version_id: UUID) -> Version | None:
@@ -29,26 +24,41 @@ class VersionRepository:
 
 
 class CredentialRepository(AbstractCredentialRepository):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
+    def is_duplicate(self, provider_id: UUID, data_hash: str) -> bool:
+        """True если активная запись с таким хешем уже существует."""
+        row = self.session.execute(
+            select(Credential.id)
+            .join(Version, Version.id == Credential.version_id)
+            .where(
+                Credential.provider_id == provider_id,
+                Credential.data_hash == data_hash,
+                Version.expired == False,  # noqa: E712
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+        return row is not None
+
     def add(self, entity: CredentialSchema) -> CredentialSchema:
-        row = Credential(
-            id=entity.id,
-            data=entity.data,
-            provider_id=entity.provider_id,
-            version_id=entity.version_id,
+        self.session.add(
+            Credential(
+                id=entity.id,
+                data=entity.data,
+                data_hash=entity.data_hash,
+                provider_id=entity.provider_id,
+                version_id=entity.version_id,
+            )
         )
-        self.session.add(row)
         self.session.flush()
-        _log(f"credential добавлен → {entity.id}")
         return entity
 
     def get(self, entity_id: UUID) -> CredentialSchema | None:
         row = self.session.get(Credential, entity_id)
         return CredentialSchema.model_validate(row) if row else None
 
-    def list(self, limit: int = 10) -> list[CredentialSchema]:
+    def get_all(self, limit: int = 10) -> list[CredentialSchema]:
         rows = self.session.execute(select(Credential).limit(limit)).scalars().all()
         return [CredentialSchema.model_validate(r) for r in rows]
 
@@ -57,8 +67,9 @@ class CredentialRepository(AbstractCredentialRepository):
             select(Credential)
             .join(Version, Version.id == Credential.version_id)
             .where(
-                Credential.provider_id == provider_id, Version.expired == False
-            )  # noqa: E712
+                Credential.provider_id == provider_id,
+                Version.expired == False,  # noqa: E712
+            )
             .order_by(Version.timestamp.desc())
             .limit(1)
         )
@@ -74,9 +85,8 @@ class CredentialRepository(AbstractCredentialRepository):
             .where(Version.id.in_(subq), Version.expired == False)  # noqa: E712
             .values(expired=True)
         )
-        _log(f"provider {provider_id} → помечено expired")
 
-    def history(self, limit: int = 10) -> list[HistoryRow]:
+    def get_archive(self, limit: int = 10) -> list[ArchiveRow]:
         stmt = (
             select(Version, Provider.name)
             .join(Credential, Credential.version_id == Version.id)
@@ -84,13 +94,12 @@ class CredentialRepository(AbstractCredentialRepository):
             .order_by(Version.timestamp.desc())
             .limit(limit)
         )
-        rows = self.session.execute(stmt).all()
         return [
-            HistoryRow(
+            ArchiveRow(
                 version_id=v.id,
                 timestamp=v.timestamp,
                 provider=name,
                 expired=v.expired,
             )
-            for v, name in rows
+            for v, name in self.session.execute(stmt).all()
         ]

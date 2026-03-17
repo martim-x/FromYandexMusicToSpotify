@@ -5,4 +5,4 @@
 !.env.vault
 credentials
 __pycache__
-history.db
+*.db

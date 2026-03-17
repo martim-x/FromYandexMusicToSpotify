@@ -13,7 +13,7 @@ class Playlist(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=True)
-    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
     provider_id: Mapped[UUID] = mapped_column(
         ForeignKey("providers.id"), nullable=False
     )

@@ -1,4 +1,4 @@
-"""fetchers/spotify.py - OAuth 2.0 токен для Spotify."""
+"""pullers/spotify.py - OAuth 2.0 токен для Spotify."""
 
 import os
 import webbrowser
@@ -7,25 +7,47 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 from dotenv import load_dotenv
+from tabulate import tabulate
 
 load_dotenv()
 
-from core.exceptions import FetcherError
+from core.exceptions import PullerError
 from core.models import SpotifyCredentials
-from fetchers.base import BaseFetcher
+from pullers.base import BasePuller
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "user-library-modify user-library-read"
 
-webbrowser.register(
-    "chrome",
-    None,
-    webbrowser.BackgroundBrowser(
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    ),
-)
+import platform as _platform
+import sys as _sys
+
+
+def _register_chrome() -> None:
+    _os = _platform.system()
+    if _os == "Darwin":
+        path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    elif _os == "Windows":
+        import winreg
+
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
+            )
+            path = winreg.QueryValue(key, None)
+        except Exception:
+            path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    else:
+        path = "google-chrome"
+    try:
+        webbrowser.register("chrome", None, webbrowser.BackgroundBrowser(path))
+    except Exception:
+        pass
+
+
+_register_chrome()
 
 
 class _CallbackHandler(BaseHTTPRequestHandler):
@@ -42,22 +64,22 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         pass
 
 
-class SpotifyFetcher(BaseFetcher):
+class SpotifyPuller(BasePuller):
     provider = "spotify"
 
-    def fetch(self, **_) -> dict:
+    def pull(self, **_) -> dict:
         client_id = os.getenv("SPOTIFY_CLIENT_ID")
         client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
 
         if not client_id or not client_secret:
-            raise FetcherError(
+            raise PullerError(
                 "\nSPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET не найдены в .env\n"
                 "1. Зайди на https://developer.spotify.com/dashboard\n"
                 "2. Создай приложение, скопируй Client ID и Client Secret\n"
                 "3. Добавь в .env:\n"
                 "   SPOTIFY_CLIENT_ID=xxx\n"
                 "   SPOTIFY_CLIENT_SECRET=xxx\n"
-                "   SPOTIFY_REDIRECT_URI=http://localhost:8888/callback"
+                "   SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback"
             )
 
         params = urlencode(
@@ -68,20 +90,22 @@ class SpotifyFetcher(BaseFetcher):
                 "scope": SCOPE,
             }
         )
+
         url = f"{SPOTIFY_AUTH_URL}?{params}"
         try:
             chrome = webbrowser.get("chrome")
             chrome.open(url)
         except Exception:
             webbrowser.open(url)
-        print("[spotify_fetcher] браузер открыт — жди авторизации...")
 
-        server = HTTPServer(("localhost", 8888), _CallbackHandler)
+        print("[spotify_puller] браузер открыт — жди авторизации...")
+
+        server = HTTPServer(("127.0.0.1", 8888), _CallbackHandler)
         server.handle_request()
 
         code = _CallbackHandler.code
         if not code:
-            raise FetcherError("Spotify: не получен code от callback")
+            raise PullerError("Spotify: не получен code от callback")
 
         resp = requests.post(
             SPOTIFY_TOKEN_URL,
@@ -103,5 +127,16 @@ class SpotifyFetcher(BaseFetcher):
         )
         data = creds.model_dump()
         self.save_buffer(data)
-        print("[spotify_fetcher] токен получен")
+
+        print(
+            tabulate(
+                [
+                    ("status", "ok"),
+                    ("token_type", creds.token_type),
+                    ("expires_in", f"{creds.expires_in}s"),
+                ],
+                headers=["field", "value"],
+                tablefmt="rounded_outline",
+            )
+        )
         return data

@@ -1,12 +1,14 @@
-"""db/base.py - SQLAlchemy engine, session, init, triggers."""
+"""db/base.py — SQLAlchemy engine, session, init, triggers."""
 
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = "sqlite:///history.db"
+_DB_FILE = Path(__file__).resolve().parent.parent / "archive.db"
+DATABASE_URL = f"sqlite:///{_DB_FILE}"
 
 engine = create_engine(
     DATABASE_URL,
@@ -21,43 +23,31 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_session():
-    session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
 # ── Триггеры: блокировка DELETE ───────────────────────────────────────
 
-_PROTECTED_TABLES = [
+_PROTECTED = [
     "providers",
     "versions",
     "credentials",
     "auth_log",
-    "transfer_log",
-    "transfer_tracks",
     "playlist",
     "transfer",
+    "transfer_log",
+    "transfer_tracks",
 ]
 
-_DELETE_TRIGGER_SQL = """
-CREATE TRIGGER IF NOT EXISTS block_delete_{table}
-BEFORE DELETE ON {table}
+_TRIGGER_SQL = """
+CREATE TRIGGER IF NOT EXISTS block_delete_{t}
+BEFORE DELETE ON {t}
 BEGIN
-    SELECT RAISE(ABORT, 'DELETE запрещён на таблице {table}');
+    SELECT RAISE(ABORT, 'DELETE запрещён: {t}');
 END;
 """
 
 
 def _create_triggers(conn) -> None:
-    for table in _PROTECTED_TABLES:
-        conn.execute(text(_DELETE_TRIGGER_SQL.format(table=table)))
+    for t in _PROTECTED:
+        conn.execute(text(_TRIGGER_SQL.format(t=t)))
     conn.commit()
 
 
@@ -65,9 +55,14 @@ def _create_triggers(conn) -> None:
 
 
 def init_db() -> None:
-    from db.models import Credential, Provider, Version  # noqa: F401
+    from db.models import (  # noqa: F401
+        Credential,
+        Provider,
+        TransferLog,
+        TransferTrack,
+        Version,
+    )
     from db.playlist_models import Playlist, Transfer  # noqa: F401
-    from db.transfer_models import TransferLog, TransferTrack  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
 
@@ -89,12 +84,10 @@ def init_db() -> None:
         conn.commit()
 
     _seed_providers()
-    print("[db] инициализирована → history.db")
+    print(f"[db] инициализирована → {_DB_FILE.name}")
 
 
 def _seed_providers() -> None:
-    from uuid import UUID
-
     from db.models import Provider
 
     seeds = [
@@ -103,12 +96,12 @@ def _seed_providers() -> None:
     ]
     with SessionLocal() as s:
         for pid, name in seeds:
-            if not s.get(Provider, UUID(pid)):
-                s.add(Provider(id=UUID(pid), name=name))
+            if not s.get(Provider, uuid.UUID(pid)):
+                s.add(Provider(id=uuid.UUID(pid), name=name))
         s.commit()
 
 
-# ── auth_log helper ───────────────────────────────────────────────────
+# ── auth_log ──────────────────────────────────────────────────────────
 
 
 def log_auth_event(provider: str, method: str, note: str = "") -> None:
