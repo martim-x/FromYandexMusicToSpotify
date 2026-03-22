@@ -5,6 +5,7 @@ from pathlib import Path
 
 from core.exceptions import BufferEmptyError
 from core.interfaces import AbstractPuller
+from i18n import t
 
 CREDS_DIR = Path("credentials")
 
@@ -19,9 +20,9 @@ class BasePuller(AbstractPuller):
 
     def save_buffer(self, data: dict) -> None:
         self.buffer_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
-        print(f"[{self.provider}_puller] буфер → {self.buffer_path}")
+        print(f"[{self.provider}_puller] buffer → {self.buffer_path}")
 
     def load_buffer(self) -> dict:
         if not self.buffer_path.exists():
-            raise BufferEmptyError(f"буфер не найден: {self.buffer_path} — запусти -f")
+            raise BufferEmptyError(t("push.buffer_not_found", provider=self.provider))
         return json.loads(self.buffer_path.read_text())

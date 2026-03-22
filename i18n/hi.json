@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: बफ़र नहीं मिला — चलाएं: pull {provider}",
+    "watchdog.triggered": "{timeout}s से कोई प्रगति नहीं — खोज रोकी जा रही है, परिणाम सहेजे जा रहे हैं",
+
+    "cmd.pull.unknown": "अज्ञात प्रदाता: {provider}\nउपलब्ध: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} विफल:\n  {error}",
+    "cmd.pull.unexpected": "pull {provider} में अप्रत्याशित त्रुटि:\n  {error}",
+
+    "cmd.push.unknown": "अज्ञात प्रदाता: {provider}\nउपलब्ध: yandex, spotify, all",
+    "cmd.push.unexpected": "push {provider} में अप्रत्याशित त्रुटि:\n  {error}",
+
+    "cmd.creds.unknown": "अज्ञात प्रदाता: {provider}\nउपलब्ध: yandex, spotify, all",
+    "cmd.creds.history_empty": "{provider} के लिए क्रेडेंशियल इतिहास खाली है",
+    "cmd.creds.history_header": "क्रेडेंशियल इतिहास — {provider}",
+    "cmd.creds.empty": "{provider} के लिए कोई सक्रिय क्रेडेंशियल नहीं\n  चलाएं: pull {provider}",
+    "cmd.creds.active_header": "सक्रिय क्रेडेंशियल — {provider}",
+    "cmd.creds.error": "क्रेडेंशियल पढ़ने में त्रुटि: {error}",
+
+    "cmd.playlists.usage": "उपयोग: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "प्लेलिस्ट जोड़ने में विफल: {error}",
+    "cmd.playlists.header": "प्लेलिस्ट:",
+    "cmd.playlists.none": "कोई प्लेलिस्ट नहीं। जोड़ें: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "लिंक:",
+
+    "cmd.link.no_spotify": "कोई Spotify प्लेलिस्ट नहीं।\n  जोड़ें: playlists add <url> spotify",
+    "cmd.link.no_yandex": "कोई Yandex प्लेलिस्ट नहीं।\n  जोड़ें: playlists add <url> yandex",
+    "cmd.link.step1": "चरण 1 — Spotify प्लेलिस्ट चुनें (गंतव्य):",
+    "cmd.link.step2": "चरण 2 — Yandex प्लेलिस्ट चुनें → {name}:",
+    "cmd.link.prompt_spotify": "Spotify प्लेलिस्ट नंबर:",
+    "cmd.link.prompt_yandex": "स्पेस, कॉमा या डॉट से अलग किए गए नंबर:",
+    "cmd.link.warn_range_spotify": "1 से {n} के बीच नंबर दर्ज करें",
+    "cmd.link.warn_range_yandex": "1 से {n} के बीच नंबर",
+    "cmd.link.warn_digits": "केवल अंक",
+    "cmd.link.error": "लिंक {frm} → {to} बनाने में विफल: {error}",
+    "cmd.link.created_header": "बनाए गए लिंक:",
+    "cmd.link.no_links": "कोई लिंक नहीं। बनाएं: link",
+
+    "cmd.run.no_link_id": "लिंक id दर्ज करें: run --link <id>",
+    "cmd.run.error": "ट्रांसफर त्रुटि: {error}",
+    "cmd.run.ambiguous": "अस्पष्ट उपसर्ग '{prefix}' — {count} मिलान, अधिक विशिष्ट बनाएं",
+    "cmd.run.link_not_found": "उपसर्ग '{id}' वाला लिंक नहीं मिला",
+    "cmd.run.link_db_not_found": "लिंक {id}... नहीं मिला",
+    "cmd.run.reset_pending": "लिंक {id}... pending पर रीसेट, चला रहे हैं...",
+
+    "cmd.stats.none": "कोई ट्रांसफर नहीं मिला",
+
+    "cmd.debug.buffer_header": "बफ़र → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "बफ़र नहीं मिला — चलाएं: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "वर्तमान भाषा: {lang}",
+    "cmd.lang.available": "उपलब्ध: {langs}",
+    "cmd.lang.unsupported": "असमर्थित भाषा: '{lang}'। उपलब्ध: {langs}",
+    "cmd.lang.set": "भाषा सेट की गई: {lang}",
+
+    "cmd.err.unknown_cmd": "अज्ञात कमांड: '{cmd}'",
+    "cmd.err.available": "उपलब्ध कमांड:",
+    "cmd.db_init_fail": "डेटाबेस प्रारंभ करने में विफल: {error}",
+
+    "log_service.error": "लॉग लिखने में त्रुटि: {error}",
+
+    "playlist_service.exists_updated": "{count} प्लेलिस्ट के लिए exists फ्लैग अपडेट किया गया",
+    "playlist_service.added": "जोड़ा गया: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "लिंक किया गया: {from} → {to}",
+
+    "pull_service.start": "{provider} शुरू हो रहा है...",
+    "pull_service.ok": "ok — {provider} → बफ़र तैयार",
+
+    "push_service.duplicate": "push [{provider}] — डेटा अपरिवर्तित, छोड़ा गया",
+
+    "transfer_service.start": "ट्रांसफर: {from} → {to}",
+    "transfer_service.saved_tracks": "DB में {count} ट्रैक सहेजे गए, Spotify में खोज रहे हैं...",
+    "transfer_service.no_pending": "कोई pending लिंक नहीं — जोड़ें: link",
+    "transfer_service.found_pairs": "ट्रांसफर के लिए {count} जोड़े मिले",
+    "transfer_service.adding_spotify": "Spotify प्लेलिस्ट में {count} ट्रैक जोड़ रहे हैं...",
+    "transfer_service.result": "परिणाम — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "त्रुटि: {error}",
+    "transfer_service.interrupted": "उपयोगकर्ता द्वारा रोका गया...",
+
+    "spotify_api.added_batch": "{done} / {total} जोड़े गए",
+    "spotify_api.debug_token": "टोकन: {token}",
+
+    "error.unknown_provider": "अज्ञात प्रदाता: {provider}",
+    "error.invalid_yandex_url": "अमान्य Yandex URL प्रारूप। अपेक्षित: /users/LOGIN/playlists/3 या /playlists/uuid\n  प्राप्त: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID .env में सेट नहीं — चलाएं: pull yandex && push yandex",
+    "error.invalid_spotify_url": "अमान्य Spotify URL प्रारूप। अपेक्षित: https://open.spotify.com/playlist/ID\n  प्राप्त: {url}",
+    "error.playlist_duplicate": "प्लेलिस्ट पहले से जोड़ी गई: {name}",
+    "error.playlist_not_found": "प्लेलिस्ट नहीं मिली: {id}",
+    "error.link_duplicate": "लिंक पहले से मौजूद है: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "पसंदीदा ट्रैक सूची खाली है या कुकीज़ समाप्त हो गई हैं।\n  चलाएं: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex ने डेटा के बजाय HTML लौटाया — कुकीज़ समाप्त हो गई हैं।\n  चलाएं: pull yandex && push yandex",
+    "error.yandex_empty_response": "प्लेलिस्ट {kind} के लिए खाली प्रतिक्रिया",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID .env में सेट नहीं\n1. https://developer.spotify.com/dashboard पर जाएं\n2. ऐप बनाएं (PKCE के लिए CLIENT_SECRET की आवश्यकता नहीं)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. .env में जोड़ें: SPOTIFY_CLIENT_ID=आपका_id",
+    "error.spotify_denied": "Spotify ने पहुंच अस्वीकार की: {reason}",
+    "error.spotify_no_code": "Spotify: प्राधिकरण कोड प्राप्त नहीं हुआ",
+
+    "spotify_puller.browser_opened": "ब्राउज़र खुला — Spotify में अधिकृत करें...",
+    "yandex_puller.browser_opened": "ब्राउज़र खुला — अकाउंट में लॉगिन करें, प्रतीक्षा कर रहे हैं...",
+    "yandex_puller.uid_not_found": "uid नहीं मिला — YANDEX_UID को .env में मैन्युअल रूप से जोड़ें"
+}

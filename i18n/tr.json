@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: arabellek bulunamadı — çalıştır: pull {provider}",
+    "watchdog.triggered": "{timeout}s boyunca ilerleme yok — arama durduruluyor, sonuçlar kaydediliyor",
+
+    "cmd.pull.unknown": "bilinmeyen sağlayıcı: {provider}\nMevcut: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} başarısız:\n  {error}",
+    "cmd.pull.unexpected": "pull {provider} sırasında beklenmeyen hata:\n  {error}",
+
+    "cmd.push.unknown": "bilinmeyen sağlayıcı: {provider}\nMevcut: yandex, spotify, all",
+    "cmd.push.unexpected": "push {provider} sırasında beklenmeyen hata:\n  {error}",
+
+    "cmd.creds.unknown": "bilinmeyen sağlayıcı: {provider}\nMevcut: yandex, spotify, all",
+    "cmd.creds.history_empty": "{provider} için kimlik bilgisi geçmişi boş",
+    "cmd.creds.history_header": "kimlik bilgisi geçmişi — {provider}",
+    "cmd.creds.empty": "{provider} için aktif kimlik bilgisi yok\n  Çalıştır: pull {provider}",
+    "cmd.creds.active_header": "aktif kimlik bilgileri — {provider}",
+    "cmd.creds.error": "kimlik bilgileri okunurken hata: {error}",
+
+    "cmd.playlists.usage": "kullanım: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "çalma listesi eklenemedi: {error}",
+    "cmd.playlists.header": "çalma listeleri:",
+    "cmd.playlists.none": "çalma listesi yok. Ekle: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "bağlantılar:",
+
+    "cmd.link.no_spotify": "Spotify çalma listesi yok.\n  Ekle: playlists add <url> spotify",
+    "cmd.link.no_yandex": "Yandex çalma listesi yok.\n  Ekle: playlists add <url> yandex",
+    "cmd.link.step1": "Adım 1 — Spotify çalma listesi seç (hedef):",
+    "cmd.link.step2": "Adım 2 — Yandex çalma listelerini seç → {name}:",
+    "cmd.link.prompt_spotify": "Spotify çalma listesi numarası:",
+    "cmd.link.prompt_yandex": "Boşluk, virgül veya nokta ile ayrılmış numaralar:",
+    "cmd.link.warn_range_spotify": "1 ile {n} arasında sayı gir",
+    "cmd.link.warn_range_yandex": "1 ile {n} arasında sayılar",
+    "cmd.link.warn_digits": "yalnızca rakamlar",
+    "cmd.link.error": "{frm} → {to} bağlantısı oluşturulamadı: {error}",
+    "cmd.link.created_header": "oluşturulan bağlantılar:",
+    "cmd.link.no_links": "bağlantı yok. Oluştur: link",
+
+    "cmd.run.no_link_id": "bağlantı id'si belirt: run --link <id>",
+    "cmd.run.error": "transfer hatası: {error}",
+    "cmd.run.ambiguous": "belirsiz önek '{prefix}' — {count} eşleşme, daha spesifik ol",
+    "cmd.run.link_not_found": "'{id}' önekli bağlantı bulunamadı",
+    "cmd.run.link_db_not_found": "bağlantı {id}... bulunamadı",
+    "cmd.run.reset_pending": "bağlantı {id}... pending'e sıfırlandı, çalıştırılıyor...",
+
+    "cmd.stats.none": "transfer bulunamadı",
+
+    "cmd.debug.buffer_header": "arabellek → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "arabellek bulunamadı — çalıştır: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "mevcut dil: {lang}",
+    "cmd.lang.available": "mevcut: {langs}",
+    "cmd.lang.unsupported": "desteklenmeyen dil: '{lang}'. Mevcut: {langs}",
+    "cmd.lang.set": "dil ayarlandı: {lang}",
+
+    "cmd.err.unknown_cmd": "bilinmeyen komut: '{cmd}'",
+    "cmd.err.available": "mevcut komutlar:",
+    "cmd.db_init_fail": "veritabanı başlatılamadı: {error}",
+
+    "log_service.error": "log yazma hatası: {error}",
+
+    "playlist_service.exists_updated": "{count} çalma listesi için exists bayrağı güncellendi",
+    "playlist_service.added": "eklendi: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "bağlandı: {from} → {to}",
+
+    "pull_service.start": "{provider} başlatılıyor...",
+    "pull_service.ok": "ok — {provider} → arabellek hazır",
+
+    "push_service.duplicate": "push [{provider}] — veri değişmedi, atlandı",
+
+    "transfer_service.start": "aktarılıyor: {from} → {to}",
+    "transfer_service.saved_tracks": "{count} parça veritabanına kaydedildi, Spotify'da aranıyor...",
+    "transfer_service.no_pending": "bekleyen bağlantı yok — ekle: link",
+    "transfer_service.found_pairs": "aktarım için {count} çift bulundu",
+    "transfer_service.adding_spotify": "Spotify çalma listesine {count} parça ekleniyor...",
+    "transfer_service.result": "sonuç — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "hata: {error}",
+    "transfer_service.interrupted": "kullanıcı tarafından kesildi...",
+
+    "spotify_api.added_batch": "{done} / {total} eklendi",
+    "spotify_api.debug_token": "token: {token}",
+
+    "error.unknown_provider": "bilinmeyen sağlayıcı: {provider}",
+    "error.invalid_yandex_url": "geçersiz Yandex URL formatı. Beklenen: /users/LOGIN/playlists/3 veya /playlists/uuid\n  Alınan: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID .env'de ayarlanmamış — çalıştır: pull yandex && push yandex",
+    "error.invalid_spotify_url": "geçersiz Spotify URL formatı. Beklenen: https://open.spotify.com/playlist/ID\n  Alınan: {url}",
+    "error.playlist_duplicate": "çalma listesi zaten eklendi: {name}",
+    "error.playlist_not_found": "çalma listesi bulunamadı: {id}",
+    "error.link_duplicate": "bağlantı zaten mevcut: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "beğenilen parçalar listesi boş veya çerezler süresi doldu.\n  Çalıştır: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex veri yerine HTML döndürdü — çerezler süresi doldu.\n  Çalıştır: pull yandex && push yandex",
+    "error.yandex_empty_response": "{kind} çalma listesi için boş yanıt",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID .env'de ayarlanmamış\n1. https://developer.spotify.com/dashboard adresine git\n2. Uygulama oluştur (PKCE için CLIENT_SECRET gerekmez)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. .env'e ekle: SPOTIFY_CLIENT_ID=senin_id",
+    "error.spotify_denied": "Spotify erişimi reddetti: {reason}",
+    "error.spotify_no_code": "Spotify: yetkilendirme kodu alınamadı",
+
+    "spotify_puller.browser_opened": "tarayıcı açıldı — Spotify'da yetkilendir...",
+    "yandex_puller.browser_opened": "tarayıcı açıldı — hesaba giriş yap, bekliyoruz...",
+    "yandex_puller.uid_not_found": "uid bulunamadı — YANDEX_UID'yi .env'e manuel olarak ekle"
+}

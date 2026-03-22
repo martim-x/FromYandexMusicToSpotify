@@ -12,8 +12,9 @@ from core.exceptions import PushError, UnknownProviderError
 from core.interfaces import AbstractPushService
 from core.models import ArchiveRow, CredentialSchema, VersionSchema
 from db.base import SessionLocal
-from db.models import Credential, Log, LogLevel, Version
+from db.models import LogLevel, Version
 from db.repository import CredentialRepository, VersionRepository
+from i18n import t
 from pullers.spotify import SpotifyPuller
 from pullers.yandex import YandexPuller
 from services.log_service import write_log
@@ -55,20 +56,17 @@ class PushService(AbstractPushService):
 
     def run(self, provider: str) -> VersionSchema:
         if provider not in PULLERS:
-            write_log(f"[push {provider}] - неизвестный провайдер", LogLevel.error)
-            raise UnknownProviderError(f"[push {provider}] - неизвестный провайдер")
+            write_log(f"push_service: unknown provider '{provider}'", LogLevel.error)
+            raise UnknownProviderError(t("error.unknown_provider", provider=provider))
 
         try:
             puller = PULLERS[provider]()
             raw_data = puller.load_buffer()
         except FileNotFoundError as e:
             write_log(
-                f"[push {provider}] буфер не найден — запусти pull {provider}",
-                LogLevel.error,
+                f"push_service: buffer not found for '{provider}'", LogLevel.error
             )
-            raise PushError(
-                f"[push {provider}] буфер не найден — запусти pull {provider}"
-            ) from e
+            raise PushError(t("push.buffer_not_found", provider=provider)) from e
 
         provider_id = PROVIDER_IDS[provider]
         data_hash = hashlib.sha256(
@@ -78,8 +76,8 @@ class PushService(AbstractPushService):
         with SessionLocal() as check_session:
             c_repo_check = CredentialRepository(check_session)
             if c_repo_check.is_duplicate(provider_id, data_hash):
-                write_log(f"[push {provider}] - данные не изменились, push пропущен")
-                print(f"[push] {provider}] - данные не изменились, push пропущен")
+                write_log(f"push_service: '{provider}' data unchanged, skipped")
+                print(t("push_service.duplicate", provider=provider))
                 return VersionSchema()
 
         version_schema = VersionSchema()
@@ -97,11 +95,10 @@ class PushService(AbstractPushService):
             c_repo.mark_expired(provider_id)
             v_repo.add(Version(id=version_schema.id, version=version_schema.version))
             c_repo.add(cred_schema)
-
             session.commit()
 
         write_log(
-            f"[push {provider}] креды сохранены, version={str(version_schema.id)[:8]}",
+            f"push_service: '{provider}' credentials saved, version={str(version_schema.id)[:8]}",
             version_id=version_schema.id,
         )
         _write_env(provider, raw_data)

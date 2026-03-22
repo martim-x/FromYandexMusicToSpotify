@@ -1,29 +1,40 @@
 """
 main.py — точка входа.
 
+
   pull [yandex|spotify|all]       браузер → credentials/*.json
   push [yandex|spotify|all]       json → .env + DB
+
 
   creds [--all]                   последние креды / полная история
   playlists                       все плейлисты
   playlists add <url> <provider>  добавить плейлист
 
+
   link                            интерактив: Spotify (to) → Yandex (from)
   link --show                     таблица всех связей
+
 
   run                             перенести все pending связи
   run --link <id>                 повторить конкретную связь
 
+
   stats                           статистика всех переносов
   stats --id <id>                 детали конкретного переноса
 
+
   debug [yandex|spotify|all]      буфер + .env
 
+
   help                            эта инструкция
+
+
+  lang [en|es|fr|ru]              изменить язык
 """
 
 import json
 import os
+import re
 import sqlite3
 import sys
 import traceback
@@ -46,6 +57,7 @@ from core.exceptions import (
 )
 from db.base import init_db
 from db.models import Transfer, Version
+from i18n import t
 from services.playlist_service import (
     add_playlist,
     link_playlists,
@@ -83,9 +95,7 @@ def _warn(msg: str) -> None:
 def _bg_sync() -> None:
     try:
         conn = sqlite3.connect(str(DB_PATH))
-        count = conn.execute("SELECT COUNT(*) FROM playlists").fetchone()[
-            0
-        ]  # ← было playlist
+        count = conn.execute("SELECT COUNT(*) FROM playlists").fetchone()[0]
         conn.close()
         if count > 0:
             sync_exists_flags()
@@ -103,16 +113,16 @@ def cmd_help() -> None:
 def cmd_pull(args: list[str]) -> None:
     provider = args[0] if args else "all"
     if provider not in PROVIDERS + ["all"]:
-        _err(f"неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all")
+        _err(t("cmd.pull.unknown", provider=provider))
         return
     svc = PullService()
     for p in PROVIDERS if provider == "all" else [provider]:
         try:
             svc.run(p)
         except PullerError as e:
-            _err(f"pull {p} не удался:\n  {e}")
+            _err(t("cmd.pull.failed", provider=p, error=e))
         except Exception as e:
-            _err(f"неожиданная ошибка при pull {p}:\n  {e}")
+            _err(t("cmd.pull.unexpected", provider=p, error=e))
 
 
 # ── push ──────────────────────────────────────────────────────────────
@@ -121,18 +131,18 @@ def cmd_pull(args: list[str]) -> None:
 def cmd_push(args: list[str]) -> None:
     provider = args[0] if args else "all"
     if provider not in PROVIDERS + ["all"]:
-        _err(f"неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all")
+        _err(t("cmd.push.unknown", provider=provider))
         return
     svc = PushService()
     for p in PROVIDERS if provider == "all" else [provider]:
         try:
             svc.run(p)
         except BufferEmptyError:
-            _err(f"буфер для {p} не найден.\n  Сначала запусти: pull {p}")
+            _err(t("push.buffer_not_found", provider=p))
         except (PushError, UnknownProviderError) as e:
             _err(str(e))
         except Exception as e:
-            _err(f"неожиданная ошибка при push {p}:\n  {e}")
+            _err(t("cmd.push.unexpected", provider=p, error=e))
 
 
 # ── creds ─────────────────────────────────────────────────────────────
@@ -143,7 +153,7 @@ def cmd_creds(args: list[str]) -> None:
     remaining = [a for a in args if a != "--all"]
     provider = remaining[0] if remaining else "all"
     if provider not in PROVIDERS + ["all"]:
-        _err(f"неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all")
+        _err(t("cmd.creds.unknown", provider=provider))
         return
     for prov in PROVIDERS if provider == "all" else [provider]:
         _cmd_creds_one(prov, show_all)
@@ -155,7 +165,6 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
         conn.row_factory = sqlite3.Row
 
         if show_all:
-            # expired теперь в credentials
             rows = conn.execute(
                 """
                 SELECT substr(cast(c.id as text),1,8)||'...' as short_id,
@@ -173,9 +182,9 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
             ).fetchall()
             conn.close()
             if not rows:
-                _warn(f"история кредов пуста для {provider}")
+                _warn(t("cmd.creds.history_empty", provider=provider))
                 return
-            print(f"\nистория кредов — {provider}")
+            print(f"\n{t('cmd.creds.history_header', provider=provider)}")
             print(
                 tabulate(
                     [
@@ -207,7 +216,7 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
             ).fetchone()
             conn.close()
             if not row:
-                _warn(f"нет активных кредов для {provider}\n  Запусти: pull {provider}")
+                _warn(t("cmd.creds.empty", provider=provider))
                 return
             data = json.loads(row["data"])
             kv = []
@@ -219,7 +228,7 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
                     else s
                 )
                 kv.append([k, display])
-            print(f"\nактивные креды — {provider}")
+            print(f"\n{t('cmd.creds.active_header', provider=provider)}")
             print(
                 tabulate(
                     [[row["short_id"], provider, str(row["timestamp"])[:19]]],
@@ -229,7 +238,7 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
             )
             print(tabulate(kv, headers=["field", "value"], tablefmt="rounded_outline"))
     except Exception as e:
-        _err(f"ошибка чтения кредов: {e}")
+        _err(t("cmd.creds.error", error=e))
 
 
 # ── playlists ─────────────────────────────────────────────────────────
@@ -238,7 +247,7 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
 def cmd_playlists(args: list[str]) -> None:
     if args and args[0] == "add":
         if len(args) < 3:
-            _err("Использование: playlists add <url> <provider>")
+            _err(t("cmd.playlists.usage"))
             return
         try:
             pl = add_playlist(args[1], args[2])
@@ -260,29 +269,29 @@ def cmd_playlists(args: list[str]) -> None:
         except ValueError as e:
             _err(str(e))
         except Exception as e:
-            _err(f"не удалось добавить плейлист: {e}")
+            _err(t("cmd.playlists.add_error", error=e))
         return
 
     pls = list_playlists()
     links = list_links()
 
     if pls:
-        print("\nплейлисты:")
+        print(f"\n{t('cmd.playlists.header')}")
         print(
             tabulate(
                 [
                     [p["id"], p["provider"], p["name"], p["exists"], p["url"]]
                     for p in pls
                 ],
-                headers=["id", "provider", "name", "exists", "url"],  # ← убран copied
+                headers=["id", "provider", "name", "exists", "url"],
                 tablefmt="rounded_outline",
             )
         )
     else:
-        _warn("плейлистов нет. Добавь: playlists add <url> <provider>")
+        _warn(t("cmd.playlists.none"))
 
     if links:
-        print("\nсвязи:")
+        print(f"\n{t('cmd.playlists.links_header')}")
         print(
             tabulate(
                 [[l["id"], l["from"], l["to"], l["status"], l["total"]] for l in links],
@@ -299,7 +308,7 @@ def cmd_link(args: list[str]) -> None:
     if "--show" in args:
         links = list_links()
         if not links:
-            _warn("связей нет. Создай: link")
+            _warn(t("cmd.link.no_links"))
             return
         print(
             tabulate(
@@ -318,13 +327,13 @@ def cmd_link(args: list[str]) -> None:
     yandex = [p for p in all_pls if p["provider"] == "yandex"]
 
     if not spotify:
-        _err("нет Spotify плейлистов.\n  Добавь: playlists add <url> spotify")
+        _err(t("cmd.link.no_spotify"))
         return
     if not yandex:
-        _err("нет Yandex плейлистов.\n  Добавь: playlists add <url> yandex")
+        _err(t("cmd.link.no_yandex"))
         return
 
-    print("\nШаг 1 — выбери Spotify плейлист (to):\n")
+    print(f"\n{t('cmd.link.step1')}\n")
     print(
         tabulate(
             [[i + 1, p["name"], p["url"]] for i, p in enumerate(spotify)],
@@ -334,15 +343,15 @@ def cmd_link(args: list[str]) -> None:
     )
     while True:
         try:
-            idx = int(input("\nНомер Spotify плейлиста: ")) - 1
+            idx = int(input(f"\n{t('cmd.link.prompt_spotify')} ")) - 1
             if 0 <= idx < len(spotify):
                 to_pl = spotify[idx]
                 break
-            _warn(f"введи число от 1 до {len(spotify)}")
+            _warn(t("cmd.link.warn_range_spotify", n=len(spotify)))
         except ValueError:
-            _warn("только цифра")
+            _warn(t("cmd.link.warn_digits"))
 
-    print(f"\nШаг 2 — выбери Yandex плейлисты → {to_pl['name']}:\n")
+    print(f"\n{t('cmd.link.step2', name=to_pl['name'])}\n")
     print(
         tabulate(
             [[i + 1, p["name"], p["url"]] for i, p in enumerate(yandex)],
@@ -351,16 +360,16 @@ def cmd_link(args: list[str]) -> None:
         )
     )
     while True:
-        raw = input("\nНомера через пробел, запятую или точку: ")
+        raw = input(f"\n{t('cmd.link.prompt_yandex')} ")
         parts = raw.replace(",", " ").replace(".", " ").split()
         try:
             indices = [int(x) - 1 for x in parts]
             if indices and all(0 <= i < len(yandex) for i in indices):
                 from_pls = [yandex[i] for i in indices]
                 break
-            _warn(f"числа от 1 до {len(yandex)}")
+            _warn(t("cmd.link.warn_range_yandex", n=len(yandex)))
         except ValueError:
-            _warn("только цифры")
+            _warn(t("cmd.link.warn_digits"))
 
     created = []
     for from_pl in from_pls:
@@ -368,9 +377,9 @@ def cmd_link(args: list[str]) -> None:
             lnk = link_playlists(from_pl["full_id"], to_pl["full_id"])
             created.append([from_pl["name"], to_pl["name"], str(lnk.id)[:8] + "..."])
         except Exception as e:
-            _err(f"не удалось создать связь {from_pl['name']} → {to_pl['name']}: {e}")
+            _err(t("cmd.link.error", frm=from_pl["name"], to=to_pl["name"], error=e))
     if created:
-        print("\nсозданные связи:")
+        print(f"\n{t('cmd.link.created_header')}")
         print(
             tabulate(created, headers=["from", "to", "id"], tablefmt="rounded_outline")
         )
@@ -383,7 +392,7 @@ def cmd_run(args: list[str]) -> None:
     if "--link" in args:
         idx = args.index("--link") + 1
         if idx >= len(args):
-            _err("Укажи id связи: run --link <id>")
+            _err(t("cmd.run.no_link_id"))
             return
         _run_by_link(args[idx])
         return
@@ -391,7 +400,7 @@ def cmd_run(args: list[str]) -> None:
     try:
         results = run_all()
     except Exception as e:
-        _err(f"ошибка при переносе: {e}")
+        _err(t("cmd.run.error", error=e))
         traceback.print_exc()
         return
 
@@ -432,7 +441,7 @@ def _resolve_link_id(prefix: str) -> str | None:
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
-        _err(f"неоднозначный префикс '{prefix}' — {len(matches)} совпадений, уточни")
+        _err(t("cmd.run.ambiguous", prefix=prefix, count=len(matches)))
     return None
 
 
@@ -443,18 +452,18 @@ def _run_by_link(link_id: str) -> None:
     except ValueError:
         full_id = _resolve_link_id(link_id)
         if not full_id:
-            _err(f"связь с префиксом '{link_id}' не найдена")
+            _err(t("cmd.run.link_not_found", id=link_id))
             return
 
     with SessionLocal() as session:
         lnk = session.get(Transfer, UUID(full_id))
         if not lnk:
-            _err(f"связь {link_id[:8]}... не найдена")
+            _err(t("cmd.run.link_db_not_found", id=link_id[:8]))
             return
         lnk.status = "pending"
         session.commit()
 
-    _warn(f"связь {link_id[:8]}... сброшена в pending, запускаем...")
+    _warn(t("cmd.run.reset_pending", id=link_id[:8]))
     cmd_run([])
 
 
@@ -469,7 +478,7 @@ def cmd_stats(args: list[str]) -> None:
 
     stats = get_stats(transfer_id)
     if not stats:
-        _warn("переносов не найдено")
+        _warn(t("cmd.stats.none"))
         return
     print()
     print(
@@ -515,7 +524,7 @@ def cmd_debug(args: list[str]) -> None:
         print(f"\n── {p.upper()} ──")
 
         buf = Path(__file__).resolve().parent / "credentials" / f"{p}.json"
-        print(f"\nbuffer → credentials/{p}.json")
+        print(f"\n{t('cmd.debug.buffer_header', provider=p)}")
         if buf.exists():
             rows = []
             for k, v in json.loads(buf.read_text()).items():
@@ -530,9 +539,9 @@ def cmd_debug(args: list[str]) -> None:
                 tabulate(rows, headers=["field", "value"], tablefmt="rounded_outline")
             )
         else:
-            _warn(f"буфер не найден — запусти: pull {p}")
+            _warn(t("cmd.debug.buffer_missing", provider=p))
 
-        print("\n.env")
+        print(f"\n{t('cmd.debug.env_header')}")
         env_rows = []
         for key in ENV_FIELDS.get(p, []):
             val = os.getenv(key, "")
@@ -550,7 +559,40 @@ def cmd_debug(args: list[str]) -> None:
         )
 
 
+# ── lang ──────────────────────────────────────────────────────────────
+
+
+def cmd_lang(args: list[str]) -> None:
+    from i18n import _LANGS, get_lang, set_lang
+
+    if not args:
+        print(t("cmd.lang.current", lang=get_lang()))
+        print(t("cmd.lang.available", langs=", ".join(sorted(_LANGS))))
+        return
+
+    lang = args[0].lower()
+    if lang not in _LANGS:
+        _err(t("cmd.lang.unsupported", lang=lang, langs=", ".join(sorted(_LANGS))))
+        return
+
+    set_lang(lang)
+
+    env_path = Path(".env")
+    if env_path.exists():
+        content = env_path.read_text(encoding="utf-8")
+        if re.search(r"^LANG=", content, re.MULTILINE):
+            content = re.sub(r"^LANG=.*$", f"LANG={lang}", content, flags=re.MULTILINE)
+        else:
+            content += f"\nLANG={lang}"
+        env_path.write_text(content, encoding="utf-8")
+    else:
+        env_path.write_text(f"LANG={lang}\n", encoding="utf-8")
+
+    print(t("cmd.lang.set", lang=lang))
+
+
 # ── router ────────────────────────────────────────────────────────────
+
 
 COMMANDS = {
     "pull": cmd_pull,
@@ -560,6 +602,7 @@ COMMANDS = {
     "link": cmd_link,
     "run": cmd_run,
     "stats": cmd_stats,
+    "lang": cmd_lang,
     "debug": cmd_debug,
     "help": lambda _: cmd_help(),
 }
@@ -569,7 +612,7 @@ def main() -> None:
     try:
         init_db()
     except Exception as e:
-        print(f"[!] не удалось инициализировать БД: {e}")
+        print(t("cmd.db_init_fail", error=e))
         sys.exit(1)
 
     _bg_sync()
@@ -585,8 +628,8 @@ def main() -> None:
     if handler:
         handler(args)
     else:
-        _err(f"неизвестная команда: '{cmd}'")
-        print("Доступные команды:")
+        _err(t("cmd.err.unknown_cmd", cmd=cmd))
+        print(t("cmd.err.available"))
         print("  " + "  ".join(COMMANDS.keys()))
 
 

@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: буферът не е намерен — изпълни: pull {provider}",
+    "watchdog.triggered": "няма прогрес от {timeout}с — спираме търсенето, запазваме резултатите",
+
+    "cmd.pull.unknown": "непознат доставчик: {provider}\nНалични: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} неуспешен:\n  {error}",
+    "cmd.pull.unexpected": "неочаквана грешка при pull {provider}:\n  {error}",
+
+    "cmd.push.unknown": "непознат доставчик: {provider}\nНалични: yandex, spotify, all",
+    "cmd.push.unexpected": "неочаквана грешка при push {provider}:\n  {error}",
+
+    "cmd.creds.unknown": "непознат доставчик: {provider}\nНалични: yandex, spotify, all",
+    "cmd.creds.history_empty": "историята на идентификационните данни е празна за {provider}",
+    "cmd.creds.history_header": "история на идентификационните данни — {provider}",
+    "cmd.creds.empty": "няма активни идентификационни данни за {provider}\n  Изпълни: pull {provider}",
+    "cmd.creds.active_header": "активни идентификационни данни — {provider}",
+    "cmd.creds.error": "грешка при четене на идентификационните данни: {error}",
+
+    "cmd.playlists.usage": "употреба: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "неуспешно добавяне на плейлист: {error}",
+    "cmd.playlists.header": "плейлисти:",
+    "cmd.playlists.none": "няма плейлисти. Добави: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "връзки:",
+
+    "cmd.link.no_spotify": "няма Spotify плейлисти.\n  Добави: playlists add <url> spotify",
+    "cmd.link.no_yandex": "няма Yandex плейлисти.\n  Добави: playlists add <url> yandex",
+    "cmd.link.step1": "Стъпка 1 — избери Spotify плейлист (цел):",
+    "cmd.link.step2": "Стъпка 2 — избери Yandex плейлисти → {name}:",
+    "cmd.link.prompt_spotify": "Номер на Spotify плейлист:",
+    "cmd.link.prompt_yandex": "Номера, разделени с интервал, запетая или точка:",
+    "cmd.link.warn_range_spotify": "въведи число от 1 до {n}",
+    "cmd.link.warn_range_yandex": "числа от 1 до {n}",
+    "cmd.link.warn_digits": "само цифри",
+    "cmd.link.error": "неуспешно създаване на връзка {frm} → {to}: {error}",
+    "cmd.link.created_header": "създадени връзки:",
+    "cmd.link.no_links": "няма връзки. Създай: link",
+
+    "cmd.run.no_link_id": "посочи id на връзката: run --link <id>",
+    "cmd.run.error": "грешка при прехвърляне: {error}",
+    "cmd.run.ambiguous": "неясен префикс '{prefix}' — {count} съвпадения, бъди по-точен",
+    "cmd.run.link_not_found": "връзка с префикс '{id}' не е намерена",
+    "cmd.run.link_db_not_found": "връзка {id}... не е намерена",
+    "cmd.run.reset_pending": "връзка {id}... нулирана до pending, стартираме...",
+
+    "cmd.stats.none": "не са намерени прехвърляния",
+
+    "cmd.debug.buffer_header": "буфер → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "буферът не е намерен — изпълни: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "текущ език: {lang}",
+    "cmd.lang.available": "налични: {langs}",
+    "cmd.lang.unsupported": "неподдържан език: '{lang}'. Налични: {langs}",
+    "cmd.lang.set": "езикът е зададен: {lang}",
+
+    "cmd.err.unknown_cmd": "непозната команда: '{cmd}'",
+    "cmd.err.available": "налични команди:",
+    "cmd.db_init_fail": "неуспешна инициализация на БД: {error}",
+
+    "log_service.error": "грешка при запис на лог: {error}",
+
+    "playlist_service.exists_updated": "флагът exists е актуализиран за {count} плейлиста",
+    "playlist_service.added": "добавен: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "свързан: {from} → {to}",
+
+    "pull_service.start": "стартираме {provider}...",
+    "pull_service.ok": "ok — {provider} → буферът е готов",
+
+    "push_service.duplicate": "push [{provider}] — данните не са променени, пропуснато",
+
+    "transfer_service.start": "прехвърляме: {from} → {to}",
+    "transfer_service.saved_tracks": "запазени {count} песни в БД, търсим в Spotify...",
+    "transfer_service.no_pending": "няма чакащи връзки — добави чрез: link",
+    "transfer_service.found_pairs": "намерени {count} двойки за прехвърляне",
+    "transfer_service.adding_spotify": "добавяме {count} песни в Spotify плейлист...",
+    "transfer_service.result": "резултат — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "грешка: {error}",
+    "transfer_service.interrupted": "прекъснато от потребителя...",
+
+    "spotify_api.added_batch": "добавени {done} / {total}",
+    "spotify_api.debug_token": "токен: {token}",
+
+    "error.unknown_provider": "непознат доставчик: {provider}",
+    "error.invalid_yandex_url": "невалиден формат на Yandex URL. Очаквано: /users/LOGIN/playlists/3 или /playlists/uuid\n  Получено: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID не е зададен в .env — изпълни: pull yandex && push yandex",
+    "error.invalid_spotify_url": "невалиден формат на Spotify URL. Очаквано: https://open.spotify.com/playlist/ID\n  Получено: {url}",
+    "error.playlist_duplicate": "плейлистът вече е добавен: {name}",
+    "error.playlist_not_found": "плейлистът не е намерен: {id}",
+    "error.link_duplicate": "връзката вече съществува: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "списъкът с харесани песни е празен или бисквитките са изтекли.\n  Изпълни: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex върна HTML вместо данни — бисквитките са изтекли.\n  Изпълни: pull yandex && push yandex",
+    "error.yandex_empty_response": "празен отговор за плейлист {kind}",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID не е зададен в .env\n1. Отиди на https://developer.spotify.com/dashboard\n2. Създай приложение (CLIENT_SECRET не е нужен за PKCE)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. Добави в .env: SPOTIFY_CLIENT_ID=твоето_id",
+    "error.spotify_denied": "Spotify отказа достъп: {reason}",
+    "error.spotify_no_code": "Spotify: кодът за оторизация не е получен",
+
+    "spotify_puller.browser_opened": "браузърът е отворен — оторизирай в Spotify...",
+    "yandex_puller.browser_opened": "браузърът е отворен — влез в акаунта, изчакваме...",
+    "yandex_puller.uid_not_found": "uid не е намерен — добави YANDEX_UID в .env ръчно"
+}

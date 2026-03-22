@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from db.base import SessionLocal
 from db.models import Log, LogLevel
+from i18n import t
 
 
 def write_log(
@@ -11,10 +12,6 @@ def write_log(
     level: LogLevel = LogLevel.info,
     version_id: UUID | None = None,
 ) -> None:
-    """
-    Пишет лог. Если version_id не передан — создаёт черновую Version автоматически.
-    Безопасен — глотает свои ошибки.
-    """
     try:
         with SessionLocal() as session:
             if version_id is None:
@@ -35,4 +32,4 @@ def write_log(
             )
             session.commit()
     except Exception as e:
-        print(f"[error] ошибка записи лога: {e}")
+        print(t("log_service.error", error=e))

@@ -23,6 +23,7 @@ from tabulate import tabulate
 
 from core.exceptions import PullerError
 from core.models import SpotifyCredentials
+from i18n import t
 from pullers.base import BasePuller
 from services.log_service import write_log
 
@@ -30,7 +31,6 @@ AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPE = "playlist-modify-public playlist-modify-private user-library-modify user-library-read user-read-private user-read-email"
-
 
 load_dotenv()
 
@@ -96,13 +96,7 @@ class SpotifyPuller(BasePuller):
             client_id = os.getenv("SPOTIFY_CLIENT_ID", "").strip()
 
             if not client_id:
-                raise PullerError(
-                    "SPOTIFY_CLIENT_ID не задан в .env\n"
-                    "1. Зайди на https://developer.spotify.com/dashboard\n"
-                    "2. Создай приложение (CLIENT_SECRET не нужен для PKCE)\n"
-                    "3. Redirect URI: http://127.0.0.1:8888/callback\n"
-                    "4. Добавь в .env: SPOTIFY_CLIENT_ID=твой_id"
-                )
+                raise PullerError(t("error.spotify_client_id_missing"))
 
             verifier, challenge = _pkce_pair()
 
@@ -123,17 +117,18 @@ class SpotifyPuller(BasePuller):
             except Exception:
                 webbrowser.open(url)
 
-            print("[spotify_puller] браузер открыт — авторизуйся в Spotify...")
+            print(t("spotify_puller.browser_opened"))
 
             server = HTTPServer(("127.0.0.1", 8888), _CallbackHandler)
             server.handle_request()
 
             if _CallbackHandler.error:
-                raise PullerError(f"Spotify отказал: {_CallbackHandler.error}")
+                raise PullerError(
+                    t("error.spotify_denied", reason=_CallbackHandler.error)
+                )
             if not _CallbackHandler.code:
-                raise PullerError("Spotify: code не получен")
+                raise PullerError(t("error.spotify_no_code"))
 
-            # Обмен code на токен через PKCE (без client_secret)
             resp = requests.post(
                 TOKEN_URL,
                 data={
@@ -159,7 +154,7 @@ class SpotifyPuller(BasePuller):
                 tabulate(
                     [
                         ("status", "ok"),
-                        ("flow", "PKCE — без CLIENT_SECRET"),
+                        ("flow", "PKCE — no CLIENT_SECRET"),
                         ("token_type", creds.token_type),
                         ("expires_in", f"{creds.expires_in}s"),
                         ("refresh_token", "yes" if creds.refresh_token else "no"),
@@ -169,13 +164,15 @@ class SpotifyPuller(BasePuller):
                 )
             )
             write_log(
-                f"[spotify_puller] токены получены, expires_in={creds.expires_in}s, refresh_token={"yes" if creds.refresh_token else "no"}"
+                f"spotify_puller: tokens received, expires_in={creds.expires_in}s, "
+                f"refresh_token={'yes' if creds.refresh_token else 'no'}"
             )
 
             self.save_buffer(data)
-            write_log("[spotify_puller] буфер сохранён → credentials/spotify.json")
+            write_log("spotify_puller: buffer saved → credentials/spotify.json")
 
             return data
+
         except Exception as e:
-            write_log(f"[spotify_puller] failed: {e}")
-            raise PullerError(f"[spotify_puller] failed: {e}")
+            write_log(f"spotify_puller: failed | {e}")
+            raise PullerError(str(e)) from e

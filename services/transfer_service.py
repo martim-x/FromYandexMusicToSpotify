@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from core.spinner import Spinner
 from db.base import SessionLocal
 from db.models import LogLevel, Track, TrackStatus, Transfer, VerifiedTrack
+from i18n import t
 from services.log_service import write_log
 from services.spotify_api import (
     add_tracks_to_playlist,
@@ -67,10 +68,7 @@ class _Watchdog:
             if _time.monotonic() - self._last_tick > self.timeout:
                 self.triggered = True
                 self._stop.set()
-                print(
-                    f"\n[watchdog] прогресс не менялся {self.timeout:.0f}с — "
-                    "прерываем поиск, сохраняем что есть"
-                )
+                print(f"\n{t('watchdog.triggered', timeout=int(self.timeout))}")
                 return
             self._stop.wait(1.0)
 
@@ -81,17 +79,17 @@ class _Watchdog:
 def _save_tracks(session, transfer_id, raw_tracks: list[dict]) -> list[Track]:
     """Записывает треки из Яндекса в таблицу tracks со статусом pending."""
     rows = []
-    for t in raw_tracks:
+    for item in raw_tracks:
         row = Track(
             id=uuid4(),
             transfer_id=transfer_id,
             status=TrackStatus.pending,
-            yandex_id=t.get("yandex_id"),
-            yandex_title=t["title"],
-            yandex_artist=t["artist"],
-            yandex_album=t.get("album"),
-            yandex_year=t.get("year"),
-            yandex_duration_ms=t.get("duration_ms"),
+            yandex_id=item.get("yandex_id"),
+            yandex_title=item["title"],
+            yandex_artist=item["artist"],
+            yandex_album=item.get("album"),
+            yandex_year=item.get("year"),
+            yandex_duration_ms=item.get("duration_ms"),
         )
         session.add(row)
         rows.append(row)
@@ -103,13 +101,12 @@ def _update_track(session, track: Track, result: dict | None) -> None:
     """Проставляет результат поиска на трек."""
     if result is None:
         track.status = TrackStatus.not_found
-    elif result["status"] == "matched":
-        track.status = TrackStatus.matched
-        track.spotify_id = result["id"]
-        track.spotify_title = result["title"]
-        track.spotify_artist = result["artist"]
-    elif result["status"] == "partial":
-        track.status = TrackStatus.partial
+    elif result["status"] in ("matched", "partial"):
+        track.status = (
+            TrackStatus.matched
+            if result["status"] == "matched"
+            else TrackStatus.partial
+        )
         track.spotify_id = result["id"]
         track.spotify_title = result["title"]
         track.spotify_artist = result["artist"]
@@ -119,13 +116,7 @@ def _update_track(session, track: Track, result: dict | None) -> None:
 
 def _save_verified(session, transfer_id, track: Track) -> None:
     """Записывает трек в verified_tracks после добавления в Spotify."""
-    session.add(
-        VerifiedTrack(
-            id=uuid4(),
-            track_id=track.id,
-            transfer_id=transfer_id,
-        )
-    )
+    session.add(VerifiedTrack(id=uuid4(), track_id=track.id, transfer_id=transfer_id))
 
 
 # ── Основной запуск ───────────────────────────────────────────────────────
@@ -136,7 +127,9 @@ def _run_one(link: Transfer, session) -> None:
     kind = _kind_from_url(link.from_playlist.url)
     spotify_id = extract_playlist_id(link.to_playlist.url)
 
-    print(f"\n[run] {link.from_playlist.name} → {link.to_playlist.name}")
+    print(
+        f"\n{t('transfer_service.start', **{'from': link.from_playlist.name, 'to': link.to_playlist.name})}"
+    )
 
     # 1. Загружаем треки из Яндекса
     raw_tracks = get_tracks(uid, kind)
@@ -152,12 +145,11 @@ def _run_one(link: Transfer, session) -> None:
     # 2. Записываем треки в БД (status=pending)
     track_rows = _save_tracks(session, link.id, raw_tracks)
     session.commit()
-    print(f"[run] сохранено {len(track_rows)} треков в БД, ищем в Spotify...")
+    print(t("transfer_service.saved_tracks", count=len(track_rows)))
 
     # 3. Поиск в Spotify с watchdog
     done_count = 0
     results: dict[UUID, dict | None] = {}
-
     _stop_event = threading.Event()
 
     def _do_search(track: Track):
@@ -171,7 +163,7 @@ def _run_one(link: Transfer, session) -> None:
     ex = ThreadPoolExecutor(max_workers=MAX_WORKERS)
     try:
         with Spinner("поиск в Spotify", total=len(track_rows)) as sp:
-            futures = {ex.submit(_do_search, t): t for t in track_rows}
+            futures = {ex.submit(_do_search, tr): tr for tr in track_rows}
 
             try:
                 for fut in as_completed(futures):
@@ -186,10 +178,9 @@ def _run_one(link: Transfer, session) -> None:
                     except Exception as e:
                         track = futures[fut]
                         results[track.id] = None
-                        print(f"\n[run] ошибка поиска '{track.yandex_title}': {e}")
+                        print(f"\n[run] search error '{track.yandex_title}': {e}")
                         write_log(
-                            f"search error: '{track.yandex_title}' — "
-                            f"'{track.yandex_artist}' | {e}",
+                            f"search error: '{track.yandex_title}' — '{track.yandex_artist}' | {e}",
                             level=LogLevel.error,
                             version_id=link.version_id,
                         )
@@ -199,12 +190,11 @@ def _run_one(link: Transfer, session) -> None:
                     sp.update(done_count)
 
             except KeyboardInterrupt:
-                print("\n[run] прерывание пользователем...")
+                print(f"\n{t('transfer_service.interrupted')}")
                 _stop_event.set()
                 ex.shutdown(wait=False, cancel_futures=True)
                 write_log(
-                    f"transfer interrupted: '{link.from_playlist.name}' — "
-                    f"пользователь прервал поиск",
+                    f"transfer interrupted: '{link.from_playlist.name}' — user interrupted",
                     level=LogLevel.warn,
                     version_id=link.version_id,
                 )
@@ -218,9 +208,8 @@ def _run_one(link: Transfer, session) -> None:
     if watchdog.triggered:
         link.status = "partial_done"
         write_log(
-            f"watchdog triggered: '{link.from_playlist.name}' → "
-            f"'{link.to_playlist.name}' "
-            f"обработано {done_count}/{len(track_rows)} треков",
+            f"watchdog triggered: '{link.from_playlist.name}' → '{link.to_playlist.name}' "
+            f"processed {done_count}/{len(track_rows)} tracks",
             level=LogLevel.warn,
             version_id=link.version_id,
         )
@@ -241,8 +230,7 @@ def _run_one(link: Transfer, session) -> None:
             partial += 1
             spotify_ids.append(track.spotify_id)
             print(
-                f"  [~] {track.yandex_artist} — {track.yandex_title} "
-                f"→ {track.spotify_artist} — {track.spotify_title}"
+                f"  [~] {track.yandex_artist} — {track.yandex_title} → {track.spotify_artist} — {track.spotify_title}"
             )
         else:
             not_found += 1
@@ -252,10 +240,9 @@ def _run_one(link: Transfer, session) -> None:
 
     # 5. Добавляем найденные треки в плейлист Spotify
     if spotify_ids:
-        print(f"[run] добавляем {len(spotify_ids)} треков в Spotify плейлист...")
+        print(t("transfer_service.adding_spotify", count=len(spotify_ids)))
         write_log(
-            f"spotify add tracks: {len(spotify_ids)} треков → "
-            f"playlist {spotify_id[:8]}",
+            f"spotify add tracks: {len(spotify_ids)} tracks → playlist {spotify_id[:8]}",
             version_id=link.version_id,
         )
         add_tracks_to_playlist(spotify_id, spotify_ids)
@@ -274,7 +261,7 @@ def _run_one(link: Transfer, session) -> None:
         link.status = "done"
         link.from_playlist.copied = True
         write_log(
-            f"playlist copied: '{link.from_playlist.name}' помечен как скопированный",
+            f"playlist copied: '{link.from_playlist.name}' marked as copied",
             level=LogLevel.info,
             version_id=link.version_id,
         )
@@ -287,7 +274,14 @@ def _run_one(link: Transfer, session) -> None:
         level=LogLevel.info if link.status == "done" else LogLevel.warn,
         version_id=link.version_id,
     )
-    print(f"[run] итог — matched:{matched} partial:{partial} not_found:{not_found}")
+    print(
+        t(
+            "transfer_service.result",
+            matched=matched,
+            partial=partial,
+            not_found=not_found,
+        )
+    )
 
 
 def run_all() -> list[dict]:
@@ -295,9 +289,9 @@ def run_all() -> list[dict]:
     with SessionLocal() as session:
         links = session.query(Transfer).filter(Transfer.status == "pending").all()
         if not links:
-            print("[run] нет pending связей — добавь через playlist link")
+            print(t("transfer_service.no_pending"))
             return []
-        print(f"[run] найдено {len(links)} пар для переноса")
+        print(t("transfer_service.found_pairs", count=len(links)))
         for link in links:
             try:
                 _run_one(link, session)
@@ -315,10 +309,9 @@ def run_all() -> list[dict]:
             except Exception as e:
                 link.status = "error"
                 session.commit()
-                print(f"[run] ошибка: {e}")
+                print(t("transfer_service.error", error=e))
                 write_log(
-                    f"transfer error: '{link.from_playlist.name}' → "
-                    f"'{link.to_playlist.name}' | {e}",
+                    f"transfer error: '{link.from_playlist.name}' → '{link.to_playlist.name}' | {e}",
                     level=LogLevel.error,
                     version_id=link.version_id,
                 )
@@ -344,8 +337,7 @@ def get_stats(transfer_id: str | None = None) -> list[dict]:
         rows = q.order_by(Transfer.timestamp.desc()).all()
 
         write_log(
-            f"get_stats: запрос статистики "
-            f"{'transfer=' + str(transfer_id)[:8] if transfer_id else 'all'} "
+            f"get_stats: {'transfer=' + str(transfer_id)[:8] if transfer_id else 'all'} "
             f"rows={len(rows)}",
             level=LogLevel.info,
         )

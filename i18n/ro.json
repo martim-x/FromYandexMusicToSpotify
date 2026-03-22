@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: buffer negăsit — rulează: pull {provider}",
+    "watchdog.triggered": "niciun progres timp de {timeout}s — oprire căutare, salvare rezultate",
+
+    "cmd.pull.unknown": "furnizor necunoscut: {provider}\nDisponibili: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} eșuat:\n  {error}",
+    "cmd.pull.unexpected": "eroare neașteptată la pull {provider}:\n  {error}",
+
+    "cmd.push.unknown": "furnizor necunoscut: {provider}\nDisponibili: yandex, spotify, all",
+    "cmd.push.unexpected": "eroare neașteptată la push {provider}:\n  {error}",
+
+    "cmd.creds.unknown": "furnizor necunoscut: {provider}\nDisponibili: yandex, spotify, all",
+    "cmd.creds.history_empty": "istoricul acreditărilor gol pentru {provider}",
+    "cmd.creds.history_header": "istoricul acreditărilor — {provider}",
+    "cmd.creds.empty": "nicio acreditare activă pentru {provider}\n  Rulează: pull {provider}",
+    "cmd.creds.active_header": "acreditări active — {provider}",
+    "cmd.creds.error": "eroare la citirea acreditărilor: {error}",
+
+    "cmd.playlists.usage": "utilizare: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "nu s-a putut adăuga playlist: {error}",
+    "cmd.playlists.header": "playlisturi:",
+    "cmd.playlists.none": "niciun playlist. Adaugă: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "legături:",
+
+    "cmd.link.no_spotify": "niciun playlist Spotify.\n  Adaugă: playlists add <url> spotify",
+    "cmd.link.no_yandex": "niciun playlist Yandex.\n  Adaugă: playlists add <url> yandex",
+    "cmd.link.step1": "Pasul 1 — alege playlist Spotify (destinație):",
+    "cmd.link.step2": "Pasul 2 — alege playlisturi Yandex → {name}:",
+    "cmd.link.prompt_spotify": "Numărul playlistului Spotify:",
+    "cmd.link.prompt_yandex": "Numere separate prin spațiu, virgulă sau punct:",
+    "cmd.link.warn_range_spotify": "introdu număr de la 1 la {n}",
+    "cmd.link.warn_range_yandex": "numere de la 1 la {n}",
+    "cmd.link.warn_digits": "doar cifre",
+    "cmd.link.error": "nu s-a putut crea legătura {frm} → {to}: {error}",
+    "cmd.link.created_header": "legături create:",
+    "cmd.link.no_links": "nicio legătură. Creează: link",
+
+    "cmd.run.no_link_id": "specifică id-ul legăturii: run --link <id>",
+    "cmd.run.error": "eroare transfer: {error}",
+    "cmd.run.ambiguous": "prefix ambiguu '{prefix}' — {count} potriviri, fii mai specific",
+    "cmd.run.link_not_found": "legătură cu prefixul '{id}' negăsită",
+    "cmd.run.link_db_not_found": "legătură {id}... negăsită",
+    "cmd.run.reset_pending": "legătură {id}... resetată la pending, se rulează...",
+
+    "cmd.stats.none": "niciun transfer găsit",
+
+    "cmd.debug.buffer_header": "buffer → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "buffer negăsit — rulează: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "limba curentă: {lang}",
+    "cmd.lang.available": "disponibile: {langs}",
+    "cmd.lang.unsupported": "limbă nesuportată: '{lang}'. Disponibile: {langs}",
+    "cmd.lang.set": "limbă setată: {lang}",
+
+    "cmd.err.unknown_cmd": "comandă necunoscută: '{cmd}'",
+    "cmd.err.available": "comenzi disponibile:",
+    "cmd.db_init_fail": "nu s-a putut inițializa BD: {error}",
+
+    "log_service.error": "eroare scriere log: {error}",
+
+    "playlist_service.exists_updated": "flag exists actualizat pentru {count} playlisturi",
+    "playlist_service.added": "adăugat: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "legat: {from} → {to}",
+
+    "pull_service.start": "pornire {provider}...",
+    "pull_service.ok": "ok — {provider} → buffer pregătit",
+
+    "push_service.duplicate": "push [{provider}] — date neschimbate, omis",
+
+    "transfer_service.start": "transfer: {from} → {to}",
+    "transfer_service.saved_tracks": "{count} piese salvate în BD, căutăm în Spotify...",
+    "transfer_service.no_pending": "nicio legătură în așteptare — adaugă prin: link",
+    "transfer_service.found_pairs": "{count} perechi găsite pentru transfer",
+    "transfer_service.adding_spotify": "adăugăm {count} piese în playlist Spotify...",
+    "transfer_service.result": "rezultat — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "eroare: {error}",
+    "transfer_service.interrupted": "întrerupt de utilizator...",
+
+    "spotify_api.added_batch": "adăugate {done} / {total}",
+    "spotify_api.debug_token": "token: {token}",
+
+    "error.unknown_provider": "furnizor necunoscut: {provider}",
+    "error.invalid_yandex_url": "format URL Yandex invalid. Așteptat: /users/LOGIN/playlists/3 sau /playlists/uuid\n  Primit: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID nesetat în .env — rulează: pull yandex && push yandex",
+    "error.invalid_spotify_url": "format URL Spotify invalid. Așteptat: https://open.spotify.com/playlist/ID\n  Primit: {url}",
+    "error.playlist_duplicate": "playlist deja adăugat: {name}",
+    "error.playlist_not_found": "playlist negăsit: {id}",
+    "error.link_duplicate": "legătură deja există: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "lista de piese apreciate goală sau cookie-uri expirate.\n  Rulează: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex a returnat HTML în loc de date — cookie-uri expirate.\n  Rulează: pull yandex && push yandex",
+    "error.yandex_empty_response": "răspuns gol pentru playlist {kind}",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID nesetat în .env\n1. Accesează https://developer.spotify.com/dashboard\n2. Creează aplicație (CLIENT_SECRET inutil pentru PKCE)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. Adaugă în .env: SPOTIFY_CLIENT_ID=id_tău",
+    "error.spotify_denied": "Spotify a refuzat accesul: {reason}",
+    "error.spotify_no_code": "Spotify: cod de autorizare neprimit",
+
+    "spotify_puller.browser_opened": "browser deschis — autorizează în Spotify...",
+    "yandex_puller.browser_opened": "browser deschis — conectează-te la cont, așteptăm...",
+    "yandex_puller.uid_not_found": "uid negăsit — adaugă YANDEX_UID în .env manual"
+}

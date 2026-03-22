@@ -12,10 +12,11 @@ from uuid import UUID, uuid4
 import requests
 from dotenv import load_dotenv
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, make_transient
+from sqlalchemy.orm import joinedload
 
 from db.base import SessionLocal
-from db.models import Log, LogLevel, Playlist, Transfer, Version
+from db.models import LogLevel, Playlist, Transfer, Version
+from i18n import t
 from services.log_service import write_log
 
 PROVIDER_IDS = {
@@ -23,8 +24,9 @@ PROVIDER_IDS = {
     "spotify": UUID("00000000-0000-0000-0000-000000000002"),
 }
 
-
 load_dotenv()
+
+
 # ── helpers ───────────────────────────────────────────────────────────
 
 
@@ -47,7 +49,6 @@ def _extract_yandex_uid_from_url(url: str) -> str | None:
 
 def _extract_spotify_id(url: str) -> str | None:
     """Извлекает ID плейлиста, отбрасывая ?si=... и другие параметры."""
-    # Убираем query string перед парсингом
     clean = url.split("?")[0].split("#")[0]
     m = re.search(r"playlist/([A-Za-z0-9]+)", clean)
     return m.group(1) if m else None
@@ -89,8 +90,7 @@ def _check_yandex_exists(url: str) -> bool:
 
 def _check_spotify_exists(url: str) -> bool:
     try:
-
-        load_dotenv(override=True)  # перечитываем .env — токен мог обновиться
+        load_dotenv(override=True)
         pid = _extract_spotify_id(url)
         token = os.getenv("SPOTIFY_ACCESS_TOKEN", "")
         if not token:
@@ -110,7 +110,6 @@ def _resolve_name(url: str, provider: str) -> str:
     try:
         if provider == "yandex":
             kind = _extract_yandex_kind(url)
-            # Лайкнутые треки — фиксированное имя
             if kind and (kind == "3" or kind.startswith("lk.")):
                 return "Мне нравится"
             api_url = _yandex_api_url(url)
@@ -130,8 +129,6 @@ def _resolve_name(url: str, provider: str) -> str:
             ).get("name")
             return title or url
         else:
-            from dotenv import load_dotenv
-
             load_dotenv(override=True)
             pid = _extract_spotify_id(url)
             token = os.getenv("SPOTIFY_ACCESS_TOKEN", "")
@@ -154,7 +151,6 @@ def _resolve_name(url: str, provider: str) -> str:
 
 def sync_exists_flags() -> None:
     """
-    Вспомогательная функция.
     Запускается при каждой команде — обновляет exists флаг для всех плейлистов.
     """
     with SessionLocal() as session:
@@ -173,8 +169,8 @@ def sync_exists_flags() -> None:
                 updated += 1
         session.commit()
     if updated:
-        write_log(f"sync_exists_flags: обновлено {updated} плейлистов")
-        print(f"[playlist] exists флаг обновлён у {updated} плейлистов")
+        write_log(f"sync_exists_flags: updated {updated} playlists")
+        print(t("playlist_service.exists_updated", count=updated))
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────
@@ -183,54 +179,33 @@ def sync_exists_flags() -> None:
 def add_playlist(url: str, provider: str) -> Playlist:
     provider_id = PROVIDER_IDS.get(provider)
     if not provider_id:
-        write_log(
-            f"add_playlist: неизвестный провайдер '{provider}'",
-            level=LogLevel.error,
-        )
-        raise ValueError(f"Неизвестный провайдер: {provider}")
+        write_log(f"add_playlist: unknown provider '{provider}'", level=LogLevel.error)
+        raise ValueError(t("error.unknown_provider", provider=provider))
 
-    # Валидация URL
     if provider == "yandex":
         kind = _extract_yandex_kind(url)
         if not kind:
-            write_log(
-                f"add_playlist: неверный Яндекс URL='{url}'",
-                level=LogLevel.error,
-            )
-            raise ValueError(
-                "Неверный формат Яндекс URL. Ожидается: https://music.yandex.ru/users/LOGIN/playlists/3 или /playlists/uuid"
-                f"  Получено:  {url}"
-            )
+            write_log(f"add_playlist: invalid yandex url='{url}'", level=LogLevel.error)
+            raise ValueError(t("error.invalid_yandex_url", url=url))
         if not os.getenv("YANDEX_UID"):
-            write_log(
-                "add_playlist: YANDEX_UID не задан в .env",
-                level=LogLevel.warn,
-            )
-            raise ValueError(
-                "YANDEX_UID не задан в .env — запусти: pull yandex && push yandex"
-            )
+            write_log("add_playlist: YANDEX_UID not set in .env", level=LogLevel.warn)
+            raise ValueError(t("error.yandex_uid_missing"))
     else:
         if not _extract_spotify_id(url):
             write_log(
-                f"add_playlist: неверный Spotify URL='{url}'",
-                level=LogLevel.error,
+                f"add_playlist: invalid spotify url='{url}'", level=LogLevel.error
             )
-            raise ValueError(
-                "Неверный формат Spotify URL. Ожидается: https://open.spotify.com/playlist/ID"
-                f"  Получено:  {url}"
-            )
+            raise ValueError(t("error.invalid_spotify_url", url=url))
 
-    # Проверка дубля по URL
     with SessionLocal() as check_session:
         existing = check_session.execute(
             select(Playlist).where(Playlist.url == url)
         ).scalar_one_or_none()
         if existing:
             write_log(
-                f"add_playlist: дубль — '{existing.name or url}' уже существует",
-                level=LogLevel.warn,
+                f"add_playlist: duplicate '{existing.name or url}'", level=LogLevel.warn
             )
-            raise ValueError(f"Плейлист уже добавлен: {existing.name or url}")
+            raise ValueError(t("error.playlist_duplicate", name=existing.name or url))
 
     name = _resolve_name(url, provider)
     exists = (
@@ -256,11 +231,8 @@ def add_playlist(url: str, provider: str) -> Playlist:
         ).scalar_one()
         session.expunge(pl)
 
-    write_log(
-        f"add_playlist: добавлен '{name}' provider={provider} exists={exists}",
-        level=LogLevel.info,
-    )
-    print(f"[playlist] добавлен: {name} ({provider}) exists={exists}")
+    write_log(f"add_playlist: added '{name}' provider={provider} exists={exists}")
+    print(t("playlist_service.added", name=name, provider=provider, exists=exists))
     return pl
 
 
@@ -269,18 +241,12 @@ def link_playlists(from_id: str, to_id: str) -> Transfer:
         from_pl = session.get(Playlist, UUID(from_id))
         to_pl = session.get(Playlist, UUID(to_id))
 
-        if not from_pl:
+        if not from_pl or not to_pl:
             write_log(
-                f"link_playlists: плейлист не найден id={from_id[:8]}",
+                f"link_playlists: playlist not found id={from_id[:8]}",
                 level=LogLevel.error,
             )
-            raise ValueError(f"Плейлист не найден: {from_id}")
-        if not to_pl:
-            write_log(
-                f"link_playlists: плейлист не найден id={to_id[:8]}",
-                level=LogLevel.error,
-            )
-            raise ValueError(f"Плейлист не найден: {to_id}")
+            raise ValueError(t("error.playlist_not_found", id=from_id[:8]))
 
         existing = session.execute(
             select(Transfer).where(
@@ -291,13 +257,16 @@ def link_playlists(from_id: str, to_id: str) -> Transfer:
         ).scalar_one_or_none()
         if existing:
             write_log(
-                f"link_playlists: дубль связи '{from_pl.name}' → '{to_pl.name}' "
-                f"status={existing.status}",
+                f"link_playlists: duplicate '{from_pl.name}' → '{to_pl.name}' status={existing.status}",
                 level=LogLevel.warn,
             )
             raise ValueError(
-                f"Связь уже существует: {from_pl.name} → {to_pl.name} "
-                f"(status={existing.status})"
+                t(
+                    "error.link_duplicate",
+                    from_name=from_pl.name,
+                    to_name=to_pl.name,
+                    status=existing.status,
+                )
             )
 
         link_version = Version(id=uuid4(), version=uuid4())
@@ -324,12 +293,15 @@ def link_playlists(from_id: str, to_id: str) -> Transfer:
         session.expunge(link)
 
     write_log(
-        f"link_playlists: '{link.from_playlist.name}' → '{link.to_playlist.name}' "
-        f"id={str(link.id)[:8]}",
-        level=LogLevel.info,
+        f"link_playlists: '{link.from_playlist.name}' → '{link.to_playlist.name}' id={str(link.id)[:8]}",
         version_id=link.version_id,
     )
-    print(f"[playlist] связано: {link.from_playlist.name} → {link.to_playlist.name}")
+    print(
+        t(
+            "playlist_service.linked",
+            **{"from": link.from_playlist.name, "to": link.to_playlist.name},
+        )
+    )
     return link
 
 

@@ -11,13 +11,14 @@ import requests
 from dotenv import load_dotenv
 
 from db.models import LogLevel
+from i18n import t
 from services.log_service import write_log
 
 load_dotenv()
 
 BASE_URL = "https://api.spotify.com/v1"
-MAX_WORKERS = 2  # потоков поиска — не больше 2 во избежание rate limit
-_MIN_INTERVAL = 0.15  # 150ms между запросами = ~6 req/s
+MAX_WORKERS = 2
+_MIN_INTERVAL = 0.15
 
 _search_lock = threading.Lock()
 _last_request_time = 0.0
@@ -54,9 +55,9 @@ def get_playlist_info(playlist_id: str) -> dict:
     }
 
 
-def _artist_name(t: dict) -> str:
+def _artist_name(track: dict) -> str:
     """Безопасно достаёт имя первого артиста."""
-    artists = t.get("artists") or []
+    artists = track.get("artists") or []
     return artists[0]["name"] if artists else "Unknown"
 
 
@@ -99,30 +100,27 @@ def search_track(title: str, artist: str) -> dict | None:
                 return []
             return resp.json().get("tracks", {}).get("items", [])
         write_log(
-            f"spotify search: исчерпаны все попытки | q='{q}'",
-            level=LogLevel.error,
+            f"spotify search: all attempts exhausted | q='{q}'", level=LogLevel.error
         )
         return []
 
-    # Точный поиск: artist + title
     items = _search(f"track:{title} artist:{artist}")
     if items:
-        t = items[0]
+        item = items[0]
         return {
-            "id": t["id"],
-            "title": t["name"],
-            "artist": _artist_name(t),
+            "id": item["id"],
+            "title": item["name"],
+            "artist": _artist_name(item),
             "status": "matched",
         }
 
-    # Частичный — только по названию
     items = _search(f"track:{title}")
     if items:
-        t = items[0]
+        item = items[0]
         return {
-            "id": t["id"],
-            "title": t["name"],
-            "artist": _artist_name(t),
+            "id": item["id"],
+            "title": item["name"],
+            "artist": _artist_name(item),
             "status": "partial",
         }
 
@@ -132,9 +130,8 @@ def search_track(title: str, artist: str) -> dict | None:
 def debug_search(title: str, artist: str) -> None:
     load_dotenv(override=True)
     token = os.getenv("SPOTIFY_ACCESS_TOKEN", "")
-    print(
-        f"[debug] токен: {token[:10]}...{token[-6:] if len(token) > 16 else '(пустой)'}"
-    )
+    token_display = f"{token[:10]}...{token[-6:]}" if len(token) > 16 else "(empty)"
+    print(t("spotify_api.debug_token", token=token_display))
     q = f"track:{title} artist:{artist}"
     resp = requests.get(
         f"{BASE_URL}/search",
@@ -143,7 +140,7 @@ def debug_search(title: str, artist: str) -> None:
         timeout=15,
     )
     print(f"[debug] status: {resp.status_code}")
-    print(f"[debug] ответ: {resp.text[:500]}")
+    print(f"[debug] response: {resp.text[:500]}")
 
 
 def add_tracks_to_playlist(playlist_id: str, track_ids: list[str]) -> None:
@@ -160,7 +157,7 @@ def add_tracks_to_playlist(playlist_id: str, track_ids: list[str]) -> None:
         resp.raise_for_status()
         added = i + len(batch)
         write_log(
-            f"spotify add tracks: батч {i // 100 + 1} — "
-            f"{added}/{total} треков → playlist {playlist_id[:8]}",
+            f"spotify add tracks: batch {i // 100 + 1} — "
+            f"{added}/{total} tracks → playlist {playlist_id[:8]}",
         )
-        print(f"[spotify add tracks] добавлено {added} / {total}")
+        print(t("spotify_api.added_batch", done=added, total=total))

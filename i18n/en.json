@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: buffer not found — run: pull {provider}",
+    "watchdog.triggered": "no progress for {timeout}s — stopping search, saving results",
+
+    "cmd.pull.unknown": "unknown provider: {provider}\nAvailable: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} failed:\n  {error}",
+    "cmd.pull.unexpected": "unexpected error during pull {provider}:\n  {error}",
+
+    "cmd.push.unknown": "unknown provider: {provider}\nAvailable: yandex, spotify, all",
+    "cmd.push.unexpected": "unexpected error during push {provider}:\n  {error}",
+
+    "cmd.creds.unknown": "unknown provider: {provider}\nAvailable: yandex, spotify, all",
+    "cmd.creds.history_empty": "creds history empty for {provider}",
+    "cmd.creds.history_header": "creds history — {provider}",
+    "cmd.creds.empty": "no active creds for {provider}\n  Run: pull {provider}",
+    "cmd.creds.active_header": "active creds — {provider}",
+    "cmd.creds.error": "error reading creds: {error}",
+
+    "cmd.playlists.usage": "usage: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "failed to add playlist: {error}",
+    "cmd.playlists.header": "playlists:",
+    "cmd.playlists.none": "no playlists. Add: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "links:",
+
+    "cmd.link.no_spotify": "no Spotify playlists.\n  Add: playlists add <url> spotify",
+    "cmd.link.no_yandex": "no Yandex playlists.\n  Add: playlists add <url> yandex",
+    "cmd.link.step1": "Step 1 — choose Spotify playlist (to):",
+    "cmd.link.step2": "Step 2 — choose Yandex playlists → {name}:",
+    "cmd.link.prompt_spotify": "Spotify playlist number:",
+    "cmd.link.prompt_yandex": "Numbers separated by space, comma or dot:",
+    "cmd.link.warn_range_spotify": "enter number 1 to {n}",
+    "cmd.link.warn_range_yandex": "numbers 1 to {n}",
+    "cmd.link.warn_digits": "digits only",
+    "cmd.link.error": "failed to create link {frm} → {to}: {error}",
+    "cmd.link.created_header": "created links:",
+    "cmd.link.no_links": "no links. Create: link",
+
+    "cmd.run.no_link_id": "specify link id: run --link <id>",
+    "cmd.run.error": "transfer error: {error}",
+    "cmd.run.ambiguous": "ambiguous prefix '{prefix}' — {count} matches, be more specific",
+    "cmd.run.link_not_found": "link with prefix '{id}' not found",
+    "cmd.run.link_db_not_found": "link {id}... not found",
+    "cmd.run.reset_pending": "link {id}... reset to pending, running...",
+
+    "cmd.stats.none": "no transfers found",
+
+    "cmd.debug.buffer_header": "buffer → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "buffer not found — run: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "current language: {lang}",
+    "cmd.lang.available": "available: {langs}",
+    "cmd.lang.unsupported": "unsupported language: '{lang}'. Available: {langs}",
+    "cmd.lang.set": "language set: {lang}",
+
+    "cmd.err.unknown_cmd": "unknown command: '{cmd}'",
+    "cmd.err.available": "available commands:",
+    "cmd.db_init_fail": "failed to initialize DB: {error}",
+
+    "log_service.error": "log write error: {error}",
+
+    "playlist_service.exists_updated": "exists flag updated for {count} playlists",
+    "playlist_service.added": "added: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "linked: {from} → {to}",
+
+    "pull_service.start": "starting {provider}...",
+    "pull_service.ok": "ok — {provider} → buffer ready",
+
+    "push_service.duplicate": "push [{provider}] — data unchanged, skipped",
+
+    "transfer_service.start": "transferring: {from} → {to}",
+    "transfer_service.saved_tracks": "saved {count} tracks to DB, searching Spotify...",
+    "transfer_service.no_pending": "no pending links — add via: link",
+    "transfer_service.found_pairs": "found {count} pairs to transfer",
+    "transfer_service.adding_spotify": "adding {count} tracks to Spotify playlist...",
+    "transfer_service.result": "result — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "error: {error}",
+    "transfer_service.interrupted": "interrupted by user...",
+
+    "spotify_api.added_batch": "added {done} / {total}",
+    "spotify_api.debug_token": "token: {token}",
+
+    "error.unknown_provider": "unknown provider: {provider}",
+    "error.invalid_yandex_url": "invalid Yandex URL format. Expected: /users/LOGIN/playlists/3 or /playlists/uuid\n  Got: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID not set in .env — run: pull yandex && push yandex",
+    "error.invalid_spotify_url": "invalid Spotify URL format. Expected: https://open.spotify.com/playlist/ID\n  Got: {url}",
+    "error.playlist_duplicate": "playlist already added: {name}",
+    "error.playlist_not_found": "playlist not found: {id}",
+    "error.link_duplicate": "link already exists: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "liked tracks list is empty or cookies are expired.\n  Run: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex returned HTML instead of data — cookies are expired.\n  Run: pull yandex && push yandex",
+    "error.yandex_empty_response": "empty response for playlist {kind}",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID not set in .env\n1. Go to https://developer.spotify.com/dashboard\n2. Create app (CLIENT_SECRET not needed for PKCE)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. Add to .env: SPOTIFY_CLIENT_ID=your_id",
+    "error.spotify_denied": "Spotify denied access: {reason}",
+    "error.spotify_no_code": "Spotify: authorization code not received",
+
+    "spotify_puller.browser_opened": "browser opened — authorize in Spotify...",
+    "yandex_puller.browser_opened": "browser opened — log in to your account, waiting...",
+    "yandex_puller.uid_not_found": "uid not found — add YANDEX_UID to .env manually"
+}

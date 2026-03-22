@@ -6,10 +6,13 @@ POST api.music.yandex.ru/tracks → детали
 """
 
 import os
+import re as _re
 import time
 
 import requests
 from dotenv import load_dotenv
+
+from i18n import t
 
 load_dotenv(override=True)
 
@@ -21,10 +24,8 @@ _HEADERS = {
 }
 
 _BATCH_SIZE = 200
-_BATCH_DELAY = 1.0  # сек между батчами — избегаем rate limit
-
-# Явные задержки для retry одного батча при HTML / rate limit
-_RETRY_DELAYS = [1.0, 3.0, 5.0]  # секунды: 1 → 3 → 5
+_BATCH_DELAY = 1.0
+_RETRY_DELAYS = [1.0, 3.0, 5.0]
 
 
 def _h() -> dict:
@@ -45,8 +46,6 @@ def _is_liked(kind: str) -> bool:
 
 def get_tracks(uid: str, kind: str) -> list[dict]:
     if _is_liked(kind):
-        import re as _re
-
         owner_uid = uid
         if kind.startswith("lk."):
             m = _re.match(r"lk\.(\d+)", kind)
@@ -59,11 +58,9 @@ def get_tracks(uid: str, kind: str) -> list[dict]:
 def _liked_tracks(uid: str) -> list[dict]:
     track_ids = _get_liked_ids(uid)
     if not track_ids:
-        raise ValueError(
-            "Список лайкнутых треков пуст или куки устарели.\n"
-            "  py main.py pull yandex && py main.py push yandex"
-        )
-    print(f"[yandex_api] лайков: {len(track_ids)}, загружаем детали...")
+        raise ValueError(t("error.yandex_likes_empty"))
+    # debug print — не локализуется (внутренний вывод)
+    print(f"[yandex_api] likes: {len(track_ids)}, fetching details...")
     return _fetch_by_ids(track_ids)
 
 
@@ -74,18 +71,10 @@ def _get_liked_ids(uid: str) -> list[str]:
 
     if resp.status_code != 200 or not resp.text.strip():
         return []
-    if not _is_json(resp):
-        print("[yandex_api] куки устарели — вернулся HTML вместо JSON")
-        raise ValueError(
-            "Яндекс вернул страницу вместо данных — куки устарели.\n"
-            "  py main.py pull yandex && py main.py push yandex"
-        )
 
     if not _is_json(resp):
-        raise ValueError(
-            "Яндекс вернул HTML вместо данных — куки устарели.\n"
-            "  py main.py pull yandex && py main.py push yandex"
-        )
+        print("[yandex_api] cookies expired — got HTML instead of JSON")
+        raise ValueError(t("error.yandex_cookie_expired"))
 
     data = resp.json()
     result = data.get("result", data)
@@ -97,14 +86,14 @@ def _get_liked_ids(uid: str) -> list[str]:
     print(f"[yandex_api] ids: {len(tracks)}")
 
     ids: list[str] = []
-    for t in tracks:
-        if isinstance(t, dict):
-            tid = t.get("id") or t.get("trackId")
-            aid = t.get("albumId") or ""
+    for item in tracks:
+        if isinstance(item, dict):
+            tid = item.get("id") or item.get("trackId")
+            aid = item.get("albumId") or ""
             if tid:
                 ids.append(f"{tid}:{aid}")
-        elif isinstance(t, (int, str)):
-            ids.append(str(t))
+        elif isinstance(item, (int, str)):
+            ids.append(str(item))
     return ids
 
 
@@ -116,8 +105,8 @@ def _fetch_by_ids(track_ids: list[str]) -> list[dict]:
     for i in range(0, total, _BATCH_SIZE):
         batch = track_ids[i : i + _BATCH_SIZE]
         print(
-            f"[yandex_api] батч {i}: size={len(batch)} "
-            f"({i+1}-{min(i+_BATCH_SIZE, total)}/{total})"
+            f"[yandex_api] batch {i}: size={len(batch)} "
+            f"({i + 1}-{min(i + _BATCH_SIZE, total)}/{total})"
         )
 
         success = False
@@ -138,7 +127,7 @@ def _fetch_by_ids(track_ids: list[str]) -> list[dict]:
                     timeout=30,
                 )
                 print(
-                    f"[yandex_api] /tracks {i+1}-{min(i+_BATCH_SIZE, total)}/{total}: "
+                    f"[yandex_api] /tracks {i + 1}-{min(i + _BATCH_SIZE, total)}/{total}: "
                     f"{resp.status_code}, attempt {attempt}"
                 )
 
@@ -152,25 +141,20 @@ def _fetch_by_ids(track_ids: list[str]) -> list[dict]:
 
                 if not _is_json(resp):
                     print(
-                        f"[yandex_api] батч {i}: HTML (rate limit?), "
-                        f"задержка перед повтором {delay:.1f}с..."
+                        f"[yandex_api] batch {i}: HTML (rate limit?), "
+                        f"retrying in {delay:.1f}s..."
                     )
                     time.sleep(delay)
                     continue
 
-                # сюда можно добавить явную обработку 429/5xx, если понадобится
-
             except Exception as e:
-                print(f"[yandex_api] батч {i} ошибка: {e}")
-                print(f"[yandex_api] батч {i}: задержка перед повтором {delay:.1f}с...")
+                print(f"[yandex_api] batch {i} error: {e}")
+                print(f"[yandex_api] batch {i}: retrying in {delay:.1f}s...")
                 time.sleep(delay)
                 continue
 
         if not success:
-            print(
-                f"[yandex_api] батч {i} окончательно провален "
-                f"после {len(_RETRY_DELAYS)} попыток"
-            )
+            print(f"[yandex_api] batch {i} failed after {len(_RETRY_DELAYS)} attempts")
 
         time.sleep(_BATCH_DELAY)
 
@@ -185,25 +169,25 @@ def _playlist_tracks(uid: str, kind: str) -> list[dict]:
     resp = requests.get(url, headers=_h(), timeout=30)
     resp.raise_for_status()
     if not resp.text.strip():
-        raise ValueError(f"Пустой ответ для плейлиста {kind}")
+        raise ValueError(t("error.yandex_empty_response", kind=kind))
     return _parse(resp.json().get("tracks", []))
 
 
 def _parse(raw: list) -> list[dict]:
     result: list[dict] = []
-    for t in raw:
-        title = t.get("title", "")
-        artists_list = t.get("artists", [])
+    for item in raw:
+        title = item.get("title", "")
+        artists_list = item.get("artists", [])
         artists = ", ".join(a["name"] for a in artists_list if "name" in a)
         if title:
             result.append(
                 {
                     "title": title,
                     "artist": artists or "Unknown",
-                    "yandex_id": str(t.get("id", "")),
-                    "album": (t.get("albums") or [{}])[0].get("title"),
-                    "year": (t.get("albums") or [{}])[0].get("year"),
-                    "duration_ms": t.get("durationMs"),
+                    "yandex_id": str(item.get("id", "")),
+                    "album": (item.get("albums") or [{}])[0].get("title"),
+                    "year": (item.get("albums") or [{}])[0].get("year"),
+                    "duration_ms": item.get("durationMs"),
                 }
             )
     return result

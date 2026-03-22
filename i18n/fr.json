@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: buffer introuvable — lancez: pull {provider}",
+    "watchdog.triggered": "aucun progrès depuis {timeout}s — arrêt de la recherche, sauvegarde en cours",
+
+    "cmd.pull.unknown": "fournisseur inconnu: {provider}\nDisponibles: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} échoué:\n  {error}",
+    "cmd.pull.unexpected": "erreur inattendue lors du pull {provider}:\n  {error}",
+
+    "cmd.push.unknown": "fournisseur inconnu: {provider}\nDisponibles: yandex, spotify, all",
+    "cmd.push.unexpected": "erreur inattendue lors du push {provider}:\n  {error}",
+
+    "cmd.creds.unknown": "fournisseur inconnu: {provider}\nDisponibles: yandex, spotify, all",
+    "cmd.creds.history_empty": "historique des identifiants vide pour {provider}",
+    "cmd.creds.history_header": "historique des identifiants — {provider}",
+    "cmd.creds.empty": "aucun identifiant actif pour {provider}\n  Lancez: pull {provider}",
+    "cmd.creds.active_header": "identifiants actifs — {provider}",
+    "cmd.creds.error": "erreur de lecture des identifiants: {error}",
+
+    "cmd.playlists.usage": "utilisation: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "impossible d'ajouter la playlist: {error}",
+    "cmd.playlists.header": "playlists:",
+    "cmd.playlists.none": "aucune playlist. Ajoutez: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "liens:",
+
+    "cmd.link.no_spotify": "aucune playlist Spotify.\n  Ajoutez: playlists add <url> spotify",
+    "cmd.link.no_yandex": "aucune playlist Yandex.\n  Ajoutez: playlists add <url> yandex",
+    "cmd.link.step1": "Étape 1 — choisissez la playlist Spotify (destination):",
+    "cmd.link.step2": "Étape 2 — choisissez les playlists Yandex → {name}:",
+    "cmd.link.prompt_spotify": "Numéro de playlist Spotify:",
+    "cmd.link.prompt_yandex": "Numéros séparés par espace, virgule ou point:",
+    "cmd.link.warn_range_spotify": "entrez un nombre de 1 à {n}",
+    "cmd.link.warn_range_yandex": "nombres de 1 à {n}",
+    "cmd.link.warn_digits": "chiffres uniquement",
+    "cmd.link.error": "impossible de créer le lien {frm} → {to}: {error}",
+    "cmd.link.created_header": "liens créés:",
+    "cmd.link.no_links": "aucun lien. Créez-en un: link",
+
+    "cmd.run.no_link_id": "spécifiez l'id du lien: run --link <id>",
+    "cmd.run.error": "erreur lors du transfert: {error}",
+    "cmd.run.ambiguous": "préfixe ambigu '{prefix}' — {count} correspondances, soyez plus précis",
+    "cmd.run.link_not_found": "lien avec le préfixe '{id}' introuvable",
+    "cmd.run.link_db_not_found": "lien {id}... introuvable",
+    "cmd.run.reset_pending": "lien {id}... réinitialisé en pending, lancement...",
+
+    "cmd.stats.none": "aucun transfert trouvé",
+
+    "cmd.debug.buffer_header": "buffer → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "buffer introuvable — lancez: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "langue actuelle: {lang}",
+    "cmd.lang.available": "disponibles: {langs}",
+    "cmd.lang.unsupported": "langue non supportée: '{lang}'. Disponibles: {langs}",
+    "cmd.lang.set": "langue définie: {lang}",
+
+    "cmd.err.unknown_cmd": "commande inconnue: '{cmd}'",
+    "cmd.err.available": "commandes disponibles:",
+    "cmd.db_init_fail": "impossible d'initialiser la BD: {error}",
+
+    "log_service.error": "erreur d'écriture du log: {error}",
+
+    "playlist_service.exists_updated": "flag exists mis à jour pour {count} playlists",
+    "playlist_service.added": "ajoutée: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "lié: {from} → {to}",
+
+    "pull_service.start": "démarrage de {provider}...",
+    "pull_service.ok": "ok — {provider} → buffer prêt",
+
+    "push_service.duplicate": "push [{provider}] — données inchangées, ignoré",
+
+    "transfer_service.start": "transfert: {from} → {to}",
+    "transfer_service.saved_tracks": "{count} pistes sauvegardées en BD, recherche Spotify...",
+    "transfer_service.no_pending": "aucun lien en attente — ajoutez via: link",
+    "transfer_service.found_pairs": "{count} paires trouvées à transférer",
+    "transfer_service.adding_spotify": "ajout de {count} pistes au playlist Spotify...",
+    "transfer_service.result": "résultat — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "erreur: {error}",
+    "transfer_service.interrupted": "interrompu par l'utilisateur...",
+
+    "spotify_api.added_batch": "ajoutés {done} / {total}",
+    "spotify_api.debug_token": "token: {token}",
+
+    "error.unknown_provider": "fournisseur inconnu: {provider}",
+    "error.invalid_yandex_url": "format d'URL Yandex invalide. Attendu: /users/LOGIN/playlists/3 ou /playlists/uuid\n  Reçu: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID non défini dans .env — lancez: pull yandex && push yandex",
+    "error.invalid_spotify_url": "format d'URL Spotify invalide. Attendu: https://open.spotify.com/playlist/ID\n  Reçu: {url}",
+    "error.playlist_duplicate": "playlist déjà ajoutée: {name}",
+    "error.playlist_not_found": "playlist introuvable: {id}",
+    "error.link_duplicate": "lien déjà existant: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "liste de favoris vide ou cookies expirés.\n  Lancez: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex a renvoyé du HTML au lieu de données — cookies expirés.\n  Lancez: pull yandex && push yandex",
+    "error.yandex_empty_response": "réponse vide pour la playlist {kind}",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID non défini dans .env\n1. Allez sur https://developer.spotify.com/dashboard\n2. Créez une app (CLIENT_SECRET inutile pour PKCE)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. Ajoutez dans .env: SPOTIFY_CLIENT_ID=votre_id",
+    "error.spotify_denied": "Spotify a refusé l'accès: {reason}",
+    "error.spotify_no_code": "Spotify: code d'autorisation non reçu",
+
+    "spotify_puller.browser_opened": "navigateur ouvert — autorisez dans Spotify...",
+    "yandex_puller.browser_opened": "navigateur ouvert — connectez-vous, en attente...",
+    "yandex_puller.uid_not_found": "uid introuvable — ajoutez YANDEX_UID dans .env manuellement"
+}

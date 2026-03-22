@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: 未找到缓冲区 — 请运行: pull {provider}",
+    "watchdog.triggered": "{timeout}秒内无进展 — 停止搜索，保存结果",
+
+    "cmd.pull.unknown": "未知提供商: {provider}\n可用: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} 失败:\n  {error}",
+    "cmd.pull.unexpected": "pull {provider} 时发生意外错误:\n  {error}",
+
+    "cmd.push.unknown": "未知提供商: {provider}\n可用: yandex, spotify, all",
+    "cmd.push.unexpected": "push {provider} 时发生意外错误:\n  {error}",
+
+    "cmd.creds.unknown": "未知提供商: {provider}\n可用: yandex, spotify, all",
+    "cmd.creds.history_empty": "{provider} 的凭据历史为空",
+    "cmd.creds.history_header": "凭据历史 — {provider}",
+    "cmd.creds.empty": "{provider} 没有有效凭据\n  请运行: pull {provider}",
+    "cmd.creds.active_header": "有效凭据 — {provider}",
+    "cmd.creds.error": "读取凭据时出错: {error}",
+
+    "cmd.playlists.usage": "用法: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "无法添加播放列表: {error}",
+    "cmd.playlists.header": "播放列表:",
+    "cmd.playlists.none": "没有播放列表。添加: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "链接:",
+
+    "cmd.link.no_spotify": "没有 Spotify 播放列表。\n  添加: playlists add <url> spotify",
+    "cmd.link.no_yandex": "没有 Yandex 播放列表。\n  添加: playlists add <url> yandex",
+    "cmd.link.step1": "第1步 — 选择 Spotify 播放列表（目标）:",
+    "cmd.link.step2": "第2步 — 选择 Yandex 播放列表 → {name}:",
+    "cmd.link.prompt_spotify": "Spotify 播放列表编号:",
+    "cmd.link.prompt_yandex": "用空格、逗号或句点分隔的编号:",
+    "cmd.link.warn_range_spotify": "输入 1 到 {n} 之间的数字",
+    "cmd.link.warn_range_yandex": "1 到 {n} 之间的数字",
+    "cmd.link.warn_digits": "仅限数字",
+    "cmd.link.error": "无法创建链接 {frm} → {to}: {error}",
+    "cmd.link.created_header": "已创建的链接:",
+    "cmd.link.no_links": "没有链接。创建: link",
+
+    "cmd.run.no_link_id": "指定链接 id: run --link <id>",
+    "cmd.run.error": "传输错误: {error}",
+    "cmd.run.ambiguous": "前缀 '{prefix}' 不明确 — {count} 个匹配，请更具体",
+    "cmd.run.link_not_found": "未找到前缀为 '{id}' 的链接",
+    "cmd.run.link_db_not_found": "链接 {id}... 未找到",
+    "cmd.run.reset_pending": "链接 {id}... 已重置为 pending，正在运行...",
+
+    "cmd.stats.none": "未找到传输记录",
+
+    "cmd.debug.buffer_header": "缓冲区 → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "未找到缓冲区 — 请运行: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "当前语言: {lang}",
+    "cmd.lang.available": "可用: {langs}",
+    "cmd.lang.unsupported": "不支持的语言: '{lang}'。可用: {langs}",
+    "cmd.lang.set": "语言已设置: {lang}",
+
+    "cmd.err.unknown_cmd": "未知命令: '{cmd}'",
+    "cmd.err.available": "可用命令:",
+    "cmd.db_init_fail": "无法初始化数据库: {error}",
+
+    "log_service.error": "写入日志时出错: {error}",
+
+    "playlist_service.exists_updated": "{count} 个播放列表的 exists 标志已更新",
+    "playlist_service.added": "已添加: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "已链接: {from} → {to}",
+
+    "pull_service.start": "正在启动 {provider}...",
+    "pull_service.ok": "ok — {provider} → 缓冲区就绪",
+
+    "push_service.duplicate": "push [{provider}] — 数据未更改，已跳过",
+
+    "transfer_service.start": "正在传输: {from} → {to}",
+    "transfer_service.saved_tracks": "已将 {count} 首曲目保存到数据库，正在 Spotify 中搜索...",
+    "transfer_service.no_pending": "没有待处理的链接 — 通过 link 添加",
+    "transfer_service.found_pairs": "找到 {count} 对待传输",
+    "transfer_service.adding_spotify": "正在将 {count} 首曲目添加到 Spotify 播放列表...",
+    "transfer_service.result": "结果 — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "错误: {error}",
+    "transfer_service.interrupted": "被用户中断...",
+
+    "spotify_api.added_batch": "已添加 {done} / {total}",
+    "spotify_api.debug_token": "令牌: {token}",
+
+    "error.unknown_provider": "未知提供商: {provider}",
+    "error.invalid_yandex_url": "无效的 Yandex URL 格式。预期: /users/LOGIN/playlists/3 或 /playlists/uuid\n  收到: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID 未在 .env 中设置 — 运行: pull yandex && push yandex",
+    "error.invalid_spotify_url": "无效的 Spotify URL 格式。预期: https://open.spotify.com/playlist/ID\n  收到: {url}",
+    "error.playlist_duplicate": "播放列表已添加: {name}",
+    "error.playlist_not_found": "未找到播放列表: {id}",
+    "error.link_duplicate": "链接已存在: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "收藏曲目列表为空或 Cookie 已过期。\n  运行: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Yandex 返回了 HTML 而非数据 — Cookie 已过期。\n  运行: pull yandex && push yandex",
+    "error.yandex_empty_response": "播放列表 {kind} 的响应为空",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID 未在 .env 中设置\n1. 前往 https://developer.spotify.com/dashboard\n2. 创建应用（PKCE 不需要 CLIENT_SECRET）\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. 在 .env 中添加: SPOTIFY_CLIENT_ID=你的_id",
+    "error.spotify_denied": "Spotify 拒绝访问: {reason}",
+    "error.spotify_no_code": "Spotify: 未收到授权码",
+
+    "spotify_puller.browser_opened": "浏览器已打开 — 在 Spotify 中授权...",
+    "yandex_puller.browser_opened": "浏览器已打开 — 登录账户，等待中...",
+    "yandex_puller.uid_not_found": "未找到 uid — 请手动将 YANDEX_UID 添加到 .env"
+}

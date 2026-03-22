@@ -1,0 +1,100 @@
+{
+    "push.buffer_not_found": "push {provider}: буфер не найден — запусти: pull {provider}",
+    "watchdog.triggered": "прогресс не менялся {timeout}с — прерываем поиск, сохраняем что есть",
+
+    "cmd.pull.unknown": "неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all",
+    "cmd.pull.failed": "pull {provider} не удался:\n  {error}",
+    "cmd.pull.unexpected": "неожиданная ошибка при pull {provider}:\n  {error}",
+
+    "cmd.push.unknown": "неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all",
+    "cmd.push.unexpected": "неожиданная ошибка при push {provider}:\n  {error}",
+
+    "cmd.creds.unknown": "неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all",
+    "cmd.creds.history_empty": "история кредов пуста для {provider}",
+    "cmd.creds.history_header": "история кредов — {provider}",
+    "cmd.creds.empty": "нет активных кредов для {provider}\n  Запусти: pull {provider}",
+    "cmd.creds.active_header": "активные креды — {provider}",
+    "cmd.creds.error": "ошибка чтения кредов: {error}",
+
+    "cmd.playlists.usage": "использование: playlists add <url> <provider>",
+    "cmd.playlists.add_error": "не удалось добавить плейлист: {error}",
+    "cmd.playlists.header": "плейлисты:",
+    "cmd.playlists.none": "плейлистов нет. Добавь: playlists add <url> <provider>",
+    "cmd.playlists.links_header": "связи:",
+
+    "cmd.link.no_spotify": "нет Spotify плейлистов.\n  Добавь: playlists add <url> spotify",
+    "cmd.link.no_yandex": "нет Yandex плейлистов.\n  Добавь: playlists add <url> yandex",
+    "cmd.link.step1": "Шаг 1 — выбери Spotify плейлист (to):",
+    "cmd.link.step2": "Шаг 2 — выбери Yandex плейлисты → {name}:",
+    "cmd.link.prompt_spotify": "Номер Spotify плейлиста:",
+    "cmd.link.prompt_yandex": "Номера через пробел, запятую или точку:",
+    "cmd.link.warn_range_spotify": "введи число от 1 до {n}",
+    "cmd.link.warn_range_yandex": "числа от 1 до {n}",
+    "cmd.link.warn_digits": "только цифры",
+    "cmd.link.error": "не удалось создать связь {frm} → {to}: {error}",
+    "cmd.link.created_header": "созданные связи:",
+    "cmd.link.no_links": "связей нет. Создай: link",
+
+    "cmd.run.no_link_id": "укажи id связи: run --link <id>",
+    "cmd.run.error": "ошибка при переносе: {error}",
+    "cmd.run.ambiguous": "неоднозначный префикс '{prefix}' — {count} совпадений, уточни",
+    "cmd.run.link_not_found": "связь с префиксом '{id}' не найдена",
+    "cmd.run.link_db_not_found": "связь {id}... не найдена",
+    "cmd.run.reset_pending": "связь {id}... сброшена в pending, запускаем...",
+
+    "cmd.stats.none": "переносов не найдено",
+
+    "cmd.debug.buffer_header": "буфер → credentials/{provider}.json",
+    "cmd.debug.buffer_missing": "буфер не найден — запусти: pull {provider}",
+    "cmd.debug.env_header": ".env",
+
+    "cmd.lang.current": "текущий язык: {lang}",
+    "cmd.lang.available": "доступные: {langs}",
+    "cmd.lang.unsupported": "неподдерживаемый язык: '{lang}'. Доступные: {langs}",
+    "cmd.lang.set": "язык установлен: {lang}",
+
+    "cmd.err.unknown_cmd": "неизвестная команда: '{cmd}'",
+    "cmd.err.available": "доступные команды:",
+    "cmd.db_init_fail": "не удалось инициализировать БД: {error}",
+
+    "log_service.error": "ошибка записи лога: {error}",
+
+    "playlist_service.exists_updated": "exists флаг обновлён у {count} плейлистов",
+    "playlist_service.added": "добавлен: {name} ({provider}) exists={exists}",
+    "playlist_service.linked": "связано: {from} → {to}",
+
+    "pull_service.start": "запускаем {provider}...",
+    "pull_service.ok": "ok — {provider} → буфер готов",
+
+    "push_service.duplicate": "push [{provider}] — данные не изменились, пропущен",
+
+    "transfer_service.start": "переносим: {from} → {to}",
+    "transfer_service.saved_tracks": "сохранено {count} треков в БД, ищем в Spotify...",
+    "transfer_service.no_pending": "нет pending связей — добавь через: link",
+    "transfer_service.found_pairs": "найдено {count} пар для переноса",
+    "transfer_service.adding_spotify": "добавляем {count} треков в Spotify плейлист...",
+    "transfer_service.result": "итог — matched:{matched} partial:{partial} not_found:{not_found}",
+    "transfer_service.error": "ошибка: {error}",
+    "transfer_service.interrupted": "прерывание пользователем...",
+
+    "spotify_api.added_batch": "добавлено {done} / {total}",
+    "spotify_api.debug_token": "токен: {token}",
+
+    "error.unknown_provider": "неизвестный провайдер: {provider}",
+    "error.invalid_yandex_url": "неверный формат Яндекс URL. Ожидается: /users/LOGIN/playlists/3 или /playlists/uuid\n  Получено: {url}",
+    "error.yandex_uid_missing": "YANDEX_UID не задан в .env — запусти: pull yandex && push yandex",
+    "error.invalid_spotify_url": "неверный формат Spotify URL. Ожидается: https://open.spotify.com/playlist/ID\n  Получено: {url}",
+    "error.playlist_duplicate": "плейлист уже добавлен: {name}",
+    "error.playlist_not_found": "плейлист не найден: {id}",
+    "error.link_duplicate": "связь уже существует: {from_name} → {to_name} (status={status})",
+    "error.yandex_likes_empty": "список лайкнутых треков пуст или куки устарели.\n  Запусти: pull yandex && push yandex",
+    "error.yandex_cookie_expired": "Яндекс вернул страницу вместо данных — куки устарели.\n  Запусти: pull yandex && push yandex",
+    "error.yandex_empty_response": "пустой ответ для плейлиста {kind}",
+    "error.spotify_client_id_missing": "SPOTIFY_CLIENT_ID не задан в .env\n1. Зайди на https://developer.spotify.com/dashboard\n2. Создай приложение (CLIENT_SECRET не нужен для PKCE)\n3. Redirect URI: http://127.0.0.1:8888/callback\n4. Добавь в .env: SPOTIFY_CLIENT_ID=твой_id",
+    "error.spotify_denied": "Spotify отказал: {reason}",
+    "error.spotify_no_code": "Spotify: code не получен",
+
+    "spotify_puller.browser_opened": "браузер открыт — авторизуйся в Spotify...",
+    "yandex_puller.browser_opened": "браузер открыт — войди в аккаунт, скрипт ждёт...",
+    "yandex_puller.uid_not_found": "uid не найден — добавь YANDEX_UID в .env вручную"
+}
