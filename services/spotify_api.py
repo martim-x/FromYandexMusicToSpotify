@@ -1,26 +1,47 @@
 """
 services/spotify_api.py - поиск треков и добавление в плейлист Spotify.
-Использует SPOTIFY_ACCESS_TOKEN из .env.
 """
 
 import os
 import re
+import threading
+import time
 
 import requests
 from dotenv import load_dotenv
 
+from db.models import LogLevel
+from services.log_service import write_log
+
 load_dotenv()
 
 BASE_URL = "https://api.spotify.com/v1"
+MAX_WORKERS = 2  # потоков поиска — не больше 2 во избежание rate limit
+_MIN_INTERVAL = 0.15  # 150ms между запросами = ~6 req/s
+
+_search_lock = threading.Lock()
+_last_request_time = 0.0
 
 
 def _headers() -> dict:
+    load_dotenv(override=True)
     token = os.getenv("SPOTIFY_ACCESS_TOKEN", "")
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
+def _rate_limited_get(url: str, **kwargs) -> requests.Response:
+    """GET с глобальным rate limit — не чаще 1 запроса в 150ms."""
+    global _last_request_time
+    with _search_lock:
+        now = time.time()
+        wait = _MIN_INTERVAL - (now - _last_request_time)
+        if wait > 0:
+            time.sleep(wait)
+        _last_request_time = time.time()
+    return requests.get(url, **kwargs)
+
+
 def get_playlist_info(playlist_id: str) -> dict:
-    """Получает название и url плейлиста Spotify."""
     resp = requests.get(
         f"{BASE_URL}/playlists/{playlist_id}", headers=_headers(), timeout=15
     )
@@ -33,41 +54,64 @@ def get_playlist_info(playlist_id: str) -> dict:
     }
 
 
+def _artist_name(t: dict) -> str:
+    """Безопасно достаёт имя первого артиста."""
+    artists = t.get("artists") or []
+    return artists[0]["name"] if artists else "Unknown"
+
+
 def extract_playlist_id(url_or_id: str) -> str:
-    """Принимает URL или голый ID плейлиста Spotify."""
-    match = re.search(r"playlist/([A-Za-z0-9]+)", url_or_id)
-    return match.group(1) if match else url_or_id.strip()
+    clean = url_or_id.split("?")[0].split("#")[0]
+    match = re.search(r"playlist/([A-Za-z0-9]+)", clean)
+    return match.group(1) if match else clean.strip()
 
 
 def search_track(title: str, artist: str) -> dict | None:
     """
     Ищет трек по названию и исполнителю.
-    Возвращает { id, title, artist, status } или None.
-
-    status:
-      matched  — точное совпадение artist+title
-      partial  — совпало только название
-      not_found
+    status: matched | partial
+    Возвращает None если не найдено.
     """
 
     def _search(q: str) -> list:
-        resp = requests.get(
-            f"{BASE_URL}/search",
-            headers=_headers(),
-            params={"q": q, "type": "track", "limit": 1},
-            timeout=15,
+        for attempt in range(3):
+            resp = _rate_limited_get(
+                f"{BASE_URL}/search",
+                headers=_headers(),
+                params={"q": q, "type": "track", "limit": 1},
+                timeout=15,
+            )
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", 5))
+                write_log(
+                    f"spotify search: rate limit, retry after {retry_after}s "
+                    f"| attempt={attempt + 1} q='{q}'",
+                    level=LogLevel.warn,
+                )
+                time.sleep(retry_after)
+                continue
+            if resp.status_code != 200:
+                write_log(
+                    f"spotify search: HTTP {resp.status_code} "
+                    f"| attempt={attempt + 1} q='{q}'",
+                    level=LogLevel.error,
+                )
+                return []
+            return resp.json().get("tracks", {}).get("items", [])
+        write_log(
+            f"spotify search: исчерпаны все попытки | q='{q}'",
+            level=LogLevel.error,
         )
-        resp.raise_for_status()
-        return resp.json().get("tracks", {}).get("items", [])
+        return []
 
-    # Точный поиск
+    # Точный поиск: artist + title
     items = _search(f"track:{title} artist:{artist}")
     if items:
         t = items[0]
         return {
             "id": t["id"],
             "title": t["name"],
-            "artist": t["artists"][0]["name"],
+            "artist": _artist_name(t),
             "status": "matched",
         }
 
@@ -78,16 +122,34 @@ def search_track(title: str, artist: str) -> dict | None:
         return {
             "id": t["id"],
             "title": t["name"],
-            "artist": t["artists"][0]["name"],
+            "artist": _artist_name(t),
             "status": "partial",
         }
 
     return None
 
 
+def debug_search(title: str, artist: str) -> None:
+    load_dotenv(override=True)
+    token = os.getenv("SPOTIFY_ACCESS_TOKEN", "")
+    print(
+        f"[debug] токен: {token[:10]}...{token[-6:] if len(token) > 16 else '(пустой)'}"
+    )
+    q = f"track:{title} artist:{artist}"
+    resp = requests.get(
+        f"{BASE_URL}/search",
+        headers=_headers(),
+        params={"q": q, "type": "track", "limit": 1},
+        timeout=15,
+    )
+    print(f"[debug] status: {resp.status_code}")
+    print(f"[debug] ответ: {resp.text[:500]}")
+
+
 def add_tracks_to_playlist(playlist_id: str, track_ids: list[str]) -> None:
-    """Добавляет треки в плейлист батчами по 100 (лимит Spotify)."""
-    for i in range(0, len(track_ids), 100):
+    """Добавляет треки в плейлист батчами по 100 (лимит Spotify API)."""
+    total = len(track_ids)
+    for i in range(0, total, 100):
         batch = [f"spotify:track:{tid}" for tid in track_ids[i : i + 100]]
         resp = requests.post(
             f"{BASE_URL}/playlists/{playlist_id}/tracks",
@@ -96,4 +158,9 @@ def add_tracks_to_playlist(playlist_id: str, track_ids: list[str]) -> None:
             timeout=15,
         )
         resp.raise_for_status()
-        print(f"[spotify_api] добавлено {i + len(batch)} / {len(track_ids)}")
+        added = i + len(batch)
+        write_log(
+            f"spotify add tracks: батч {i // 100 + 1} — "
+            f"{added}/{total} треков → playlist {playlist_id[:8]}",
+        )
+        print(f"[spotify add tracks] добавлено {added} / {total}")

@@ -1,4 +1,4 @@
-"""db/repository.py — Repository pattern. Один класс = одна таблица."""
+"""db/repository.py — Repository pattern."""
 
 from uuid import UUID
 
@@ -28,14 +28,12 @@ class CredentialRepository(AbstractCredentialRepository):
         self.session = session
 
     def is_duplicate(self, provider_id: UUID, data_hash: str) -> bool:
-        """True если активная запись с таким хешем уже существует."""
         row = self.session.execute(
             select(Credential.id)
-            .join(Version, Version.id == Credential.version_id)
             .where(
                 Credential.provider_id == provider_id,
                 Credential.data_hash == data_hash,
-                Version.expired == False,  # noqa: E712
+                Credential.expired == False,  # noqa: E712
             )
             .limit(1)
         ).scalar_one_or_none()
@@ -68,7 +66,7 @@ class CredentialRepository(AbstractCredentialRepository):
             .join(Version, Version.id == Credential.version_id)
             .where(
                 Credential.provider_id == provider_id,
-                Version.expired == False,  # noqa: E712
+                Credential.expired == False,  # noqa: E712
             )
             .order_by(Version.timestamp.desc())
             .limit(1)
@@ -77,29 +75,29 @@ class CredentialRepository(AbstractCredentialRepository):
         return CredentialSchema.model_validate(row) if row else None
 
     def mark_expired(self, provider_id: UUID) -> None:
-        subq = select(Credential.version_id).where(
-            Credential.provider_id == provider_id
-        )
         self.session.execute(
-            update(Version)
-            .where(Version.id.in_(subq), Version.expired == False)  # noqa: E712
+            update(Credential)
+            .where(
+                Credential.provider_id == provider_id,
+                Credential.expired == False,  # noqa: E712
+            )
             .values(expired=True)
         )
 
     def get_archive(self, limit: int = 10) -> list[ArchiveRow]:
         stmt = (
-            select(Version, Provider.name)
-            .join(Credential, Credential.version_id == Version.id)
+            select(Credential, Provider.name)
+            .join(Version, Version.id == Credential.version_id)
             .join(Provider, Provider.id == Credential.provider_id)
             .order_by(Version.timestamp.desc())
             .limit(limit)
         )
         return [
             ArchiveRow(
-                version_id=v.id,
-                timestamp=v.timestamp,
+                version_id=cred.version_id,
+                timestamp=cred.version.timestamp,
                 provider=name,
-                expired=v.expired,
+                expired=cred.expired,
             )
-            for v, name in self.session.execute(stmt).all()
+            for cred, name in self.session.execute(stmt).all()
         ]

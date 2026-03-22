@@ -1,10 +1,10 @@
 """
 main.py — точка входа.
 
-  pull  [yandex|spotify|all]      браузер → credentials/*.json
-  push  [yandex|spotify|all]      json → .env + DB
+  pull [yandex|spotify|all]       браузер → credentials/*.json
+  push [yandex|spotify|all]       json → .env + DB
 
-  creds <provider> [--all]        последние креды / полная история
+  creds [--all]                   последние креды / полная история
   playlists                       все плейлисты
   playlists add <url> <provider>  добавить плейлист
 
@@ -12,13 +12,12 @@ main.py — точка входа.
   link --show                     таблица всех связей
 
   run                             перенести все pending связи
-  run --version <id>              повторить конкретную версию
   run --link <id>                 повторить конкретную связь
 
   stats                           статистика всех переносов
-  stats --version <id>            детали конкретного переноса
+  stats --id <id>                 детали конкретного переноса
 
-  debug [yandex|spotify|all]      буфер + .env + auth_log
+  debug [yandex|spotify|all]      буфер + .env
 
   help                            эта инструкция
 """
@@ -32,7 +31,10 @@ from pathlib import Path
 from uuid import UUID
 
 from dotenv import load_dotenv
+from sqlalchemy import select
 from tabulate import tabulate
+
+from db.base import SessionLocal
 
 load_dotenv()
 
@@ -40,10 +42,10 @@ from core.exceptions import (
     BufferEmptyError,
     PullerError,
     PushError,
-    TransferError,
     UnknownProviderError,
 )
 from db.base import init_db
+from db.models import Transfer, Version
 from services.playlist_service import (
     add_playlist,
     link_playlists,
@@ -65,21 +67,12 @@ SENSITIVE = {
 }
 ENV_FIELDS = {
     "yandex": ["YANDEX_COOKIE", "YANDEX_UID", "YANDEX_PLAYLIST_KIND"],
-    "spotify": [
-        "SPOTIFY_CLIENT_ID",
-        "SPOTIFY_CLIENT_SECRET",
-        "SPOTIFY_ACCESS_TOKEN",
-        "SPOTIFY_REFRESH_TOKEN",
-    ],
+    "spotify": ["SPOTIFY_CLIENT_ID", "SPOTIFY_ACCESS_TOKEN", "SPOTIFY_REFRESH_TOKEN"],
 }
-DB_PATH = Path(__file__).resolve().parent / "history.db"
-
-
-# ── error helpers ─────────────────────────────────────────────────────
+DB_PATH = Path(__file__).resolve().parent / "archive.db"
 
 
 def _err(msg: str) -> None:
-    """Красивый вывод ошибки."""
     print(f"\n[!] {msg}\n")
 
 
@@ -87,14 +80,12 @@ def _warn(msg: str) -> None:
     print(f"[~] {msg}")
 
 
-# ── background sync ───────────────────────────────────────────────────
-
-
 def _bg_sync() -> None:
-    """Тихая фоновая проверка exists флагов — только если есть плейлисты."""
     try:
         conn = sqlite3.connect(str(DB_PATH))
-        count = conn.execute("SELECT COUNT(*) FROM playlist").fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM playlists").fetchone()[
+            0
+        ]  # ← было playlist
         conn.close()
         if count > 0:
             sync_exists_flags()
@@ -102,14 +93,11 @@ def _bg_sync() -> None:
         pass
 
 
-# ── help ─────────────────────────────────────────────────────────────
-
-
 def cmd_help() -> None:
     print(__doc__)
 
 
-# ── pull ─────────────────────────────────────────────────────────────
+# ── pull ──────────────────────────────────────────────────────────────
 
 
 def cmd_pull(args: list[str]) -> None:
@@ -117,11 +105,8 @@ def cmd_pull(args: list[str]) -> None:
     if provider not in PROVIDERS + ["all"]:
         _err(f"неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all")
         return
-
     svc = PullService()
-    targets = PROVIDERS if provider == "all" else [provider]
-
-    for p in targets:
+    for p in PROVIDERS if provider == "all" else [provider]:
         try:
             svc.run(p)
         except PullerError as e:
@@ -130,7 +115,7 @@ def cmd_pull(args: list[str]) -> None:
             _err(f"неожиданная ошибка при pull {p}:\n  {e}")
 
 
-# ── push ─────────────────────────────────────────────────────────────
+# ── push ──────────────────────────────────────────────────────────────
 
 
 def cmd_push(args: list[str]) -> None:
@@ -138,18 +123,13 @@ def cmd_push(args: list[str]) -> None:
     if provider not in PROVIDERS + ["all"]:
         _err(f"неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all")
         return
-
     svc = PushService()
-    targets = PROVIDERS if provider == "all" else [provider]
-
-    for p in targets:
+    for p in PROVIDERS if provider == "all" else [provider]:
         try:
             svc.run(p)
         except BufferEmptyError:
-            _err(f"буфер для {p} не найден.\n" f"  Сначала запусти: pull {p}")
-        except PushError as e:
-            _err(str(e))
-        except UnknownProviderError as e:
+            _err(f"буфер для {p} не найден.\n  Сначала запусти: pull {p}")
+        except (PushError, UnknownProviderError) as e:
             _err(str(e))
         except Exception as e:
             _err(f"неожиданная ошибка при push {p}:\n  {e}")
@@ -159,50 +139,42 @@ def cmd_push(args: list[str]) -> None:
 
 
 def cmd_creds(args: list[str]) -> None:
-    # creds           → все провайдеры, последние активные
-    # creds --all     → все провайдеры, полная история
-    # creds yandex    → yandex, последние активные
-    # creds yandex --all → yandex, полная история
     show_all = "--all" in args
     remaining = [a for a in args if a != "--all"]
     provider = remaining[0] if remaining else "all"
-
     if provider not in PROVIDERS + ["all"]:
         _err(f"неизвестный провайдер: {provider}\nДоступные: yandex, spotify, all")
         return
-
-    targets = PROVIDERS if provider == "all" else [provider]
-    for prov in targets:
+    for prov in PROVIDERS if provider == "all" else [provider]:
         _cmd_creds_one(prov, show_all)
 
 
 def _cmd_creds_one(provider: str, show_all: bool) -> None:
-
     try:
         conn = sqlite3.connect(str(DB_PATH))
         conn.row_factory = sqlite3.Row
 
         if show_all:
+            # expired теперь в credentials
             rows = conn.execute(
                 """
-                SELECT substr(cast(v.id as text),1,8)||'...' as short_id,
+                SELECT substr(cast(c.id as text),1,8)||'...' as short_id,
                        p.name as provider,
-                       v.timestamp, v.expired,
+                       v.timestamp,
+                       c.expired,
                        substr(cast(v.version as text),1,8)||'...' as ver
-                FROM versions v
-                JOIN credentials c ON c.version_id = v.id
-                JOIN providers p   ON p.id = c.provider_id
+                FROM credentials c
+                JOIN versions v ON v.id = c.version_id
+                JOIN providers p ON p.id = c.provider_id
                 WHERE p.name = ?
                 ORDER BY v.timestamp DESC
-            """,
+                """,
                 (provider,),
             ).fetchall()
             conn.close()
-
             if not rows:
                 _warn(f"история кредов пуста для {provider}")
                 return
-
             print(f"\nистория кредов — {provider}")
             print(
                 tabulate(
@@ -220,36 +192,33 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
                     tablefmt="rounded_outline",
                 )
             )
-
         else:
             row = conn.execute(
                 """
-                SELECT substr(cast(v.id as text),1,8)||'...' as short_id,
+                SELECT substr(cast(c.id as text),1,8)||'...' as short_id,
                        v.timestamp, c.data
-                FROM versions v
-                JOIN credentials c ON c.version_id = v.id
-                JOIN providers p   ON p.id = c.provider_id
-                WHERE p.name = ? AND v.expired = 0
+                FROM credentials c
+                JOIN versions v ON v.id = c.version_id
+                JOIN providers p ON p.id = c.provider_id
+                WHERE p.name = ? AND c.expired = 0
                 ORDER BY v.timestamp DESC LIMIT 1
-            """,
+                """,
                 (provider,),
             ).fetchone()
             conn.close()
-
             if not row:
                 _warn(f"нет активных кредов для {provider}\n  Запусти: pull {provider}")
                 return
-
             data = json.loads(row["data"])
             kv = []
             for k, v in data.items():
                 s = str(v)
-                if k in ("cookie", "access_token", "refresh_token") and len(s) > 10:
-                    display = s[:6] + "***" + s[-4:]
-                else:
-                    display = s
+                display = (
+                    s[:6] + "***" + s[-4:]
+                    if k in ("cookie", "access_token", "refresh_token") and len(s) > 10
+                    else s
+                )
                 kv.append([k, display])
-
             print(f"\nактивные креды — {provider}")
             print(
                 tabulate(
@@ -259,7 +228,6 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
                 )
             )
             print(tabulate(kv, headers=["field", "value"], tablefmt="rounded_outline"))
-
     except Exception as e:
         _err(f"ошибка чтения кредов: {e}")
 
@@ -270,7 +238,7 @@ def _cmd_creds_one(provider: str, show_all: bool) -> None:
 def cmd_playlists(args: list[str]) -> None:
     if args and args[0] == "add":
         if len(args) < 3:
-            _err("Использование: playlists add <url> <yandex|spotify>")
+            _err("Использование: playlists add <url> <provider>")
             return
         try:
             pl = add_playlist(args[1], args[2])
@@ -303,17 +271,10 @@ def cmd_playlists(args: list[str]) -> None:
         print(
             tabulate(
                 [
-                    [
-                        p["id"],
-                        p["provider"],
-                        p["name"],
-                        p["exists"],
-                        p["copied"],
-                        p["url"],
-                    ]
+                    [p["id"], p["provider"], p["name"], p["exists"], p["url"]]
                     for p in pls
                 ],
-                headers=["id", "provider", "name", "exists", "copied", "url"],
+                headers=["id", "provider", "name", "exists", "url"],  # ← убран copied
                 tablefmt="rounded_outline",
             )
         )
@@ -331,7 +292,7 @@ def cmd_playlists(args: list[str]) -> None:
         )
 
 
-# ── link ─────────────────────────────────────────────────────────────
+# ── link ──────────────────────────────────────────────────────────────
 
 
 def cmd_link(args: list[str]) -> None:
@@ -363,7 +324,6 @@ def cmd_link(args: list[str]) -> None:
         _err("нет Yandex плейлистов.\n  Добавь: playlists add <url> yandex")
         return
 
-    # Шаг 1: Spotify (to)
     print("\nШаг 1 — выбери Spotify плейлист (to):\n")
     print(
         tabulate(
@@ -382,7 +342,6 @@ def cmd_link(args: list[str]) -> None:
         except ValueError:
             _warn("только цифра")
 
-    # Шаг 2: Yandex (from) — несколько
     print(f"\nШаг 2 — выбери Yandex плейлисты → {to_pl['name']}:\n")
     print(
         tabulate(
@@ -410,7 +369,6 @@ def cmd_link(args: list[str]) -> None:
             created.append([from_pl["name"], to_pl["name"], str(lnk.id)[:8] + "..."])
         except Exception as e:
             _err(f"не удалось создать связь {from_pl['name']} → {to_pl['name']}: {e}")
-
     if created:
         print("\nсозданные связи:")
         print(
@@ -422,14 +380,6 @@ def cmd_link(args: list[str]) -> None:
 
 
 def cmd_run(args: list[str]) -> None:
-    if "--version" in args:
-        idx = args.index("--version") + 1
-        if idx >= len(args):
-            _err("Укажи id версии: run --version <id>")
-            return
-        _run_by_version(args[idx])
-        return
-
     if "--link" in args:
         idx = args.index("--link") + 1
         if idx >= len(args):
@@ -475,41 +425,33 @@ def cmd_run(args: list[str]) -> None:
         )
 
 
-def _run_by_version(version_id: str) -> None:
-    from db.base import SessionLocal
-    from db.playlist_models import Transfer
-
+def _resolve_link_id(prefix: str) -> str | None:
     with SessionLocal() as session:
-        links = session.query(Transfer).filter(Transfer.version_id == version_id).all()
-        if not links:
-            _err(f"связей с version_id {version_id[:8]}... не найдено")
-            return
-        for lnk in links:
-            lnk.status = "pending"
-            lnk.from_playlist.copied = False
-        session.commit()
-
-    _warn(f"{len(links)} связей сброшено в pending, запускаем...")
-    cmd_run([])
+        links = session.execute(select(Transfer)).scalars().all()
+        matches = [str(lnk.id) for lnk in links if str(lnk.id).startswith(prefix)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        _err(f"неоднозначный префикс '{prefix}' — {len(matches)} совпадений, уточни")
+    return None
 
 
 def _run_by_link(link_id: str) -> None:
-    from db.base import SessionLocal
-    from db.playlist_models import Transfer
-
+    full_id = link_id
     try:
-        uid = UUID(link_id)
+        UUID(link_id)
     except ValueError:
-        _err(f"невалидный UUID: {link_id}")
-        return
+        full_id = _resolve_link_id(link_id)
+        if not full_id:
+            _err(f"связь с префиксом '{link_id}' не найдена")
+            return
 
     with SessionLocal() as session:
-        lnk = session.get(Transfer, uid)
+        lnk = session.get(Transfer, UUID(full_id))
         if not lnk:
             _err(f"связь {link_id[:8]}... не найдена")
             return
         lnk.status = "pending"
-        lnk.from_playlist.copied = False
         session.commit()
 
     _warn(f"связь {link_id[:8]}... сброшена в pending, запускаем...")
@@ -520,16 +462,15 @@ def _run_by_link(link_id: str) -> None:
 
 
 def cmd_stats(args: list[str]) -> None:
-    version_id = None
-    if "--version" in args:
-        idx = args.index("--version") + 1
-        version_id = args[idx] if idx < len(args) else None
+    transfer_id = None
+    if "--id" in args:
+        idx = args.index("--id") + 1
+        transfer_id = args[idx] if idx < len(args) else None
 
-    stats = get_stats(version_id)
+    stats = get_stats(transfer_id)
     if not stats:
         _warn("переносов не найдено")
         return
-
     print()
     print(
         tabulate(
@@ -573,17 +514,17 @@ def cmd_debug(args: list[str]) -> None:
     for p in targets:
         print(f"\n── {p.upper()} ──")
 
-        # buffer
         buf = Path(__file__).resolve().parent / "credentials" / f"{p}.json"
         print(f"\nbuffer → credentials/{p}.json")
         if buf.exists():
             rows = []
             for k, v in json.loads(buf.read_text()).items():
                 s = str(v)
-                if k in ("cookie", "access_token", "refresh_token") and len(s) > 10:
-                    display = s[:6] + "***" + s[-4:]
-                else:
-                    display = s
+                display = (
+                    s[:6] + "***" + s[-4:]
+                    if k in ("cookie", "access_token", "refresh_token") and len(s) > 10
+                    else s
+                )
                 rows.append([k, display])
             print(
                 tabulate(rows, headers=["field", "value"], tablefmt="rounded_outline")
@@ -591,7 +532,6 @@ def cmd_debug(args: list[str]) -> None:
         else:
             _warn(f"буфер не найден — запусти: pull {p}")
 
-        # .env
         print("\n.env")
         env_rows = []
         for key in ENV_FIELDS.get(p, []):
@@ -608,29 +548,6 @@ def cmd_debug(args: list[str]) -> None:
                 env_rows, headers=["key", "status", "value"], tablefmt="rounded_outline"
             )
         )
-
-        # auth_log
-        print("\nauth_log")
-        try:
-            conn = sqlite3.connect(str(DB_PATH))
-            db_rows = conn.execute(
-                "SELECT timestamp, method, note FROM auth_log "
-                "WHERE provider=? ORDER BY timestamp DESC LIMIT 5",
-                (p,),
-            ).fetchall()
-            conn.close()
-            if db_rows:
-                print(
-                    tabulate(
-                        db_rows,
-                        headers=["timestamp", "method", "note"],
-                        tablefmt="rounded_outline",
-                    )
-                )
-            else:
-                _warn("записей нет")
-        except Exception as e:
-            _err(f"ошибка чтения auth_log: {e}")
 
 
 # ── router ────────────────────────────────────────────────────────────
