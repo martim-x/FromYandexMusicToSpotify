@@ -30,7 +30,16 @@ from services.log_service import write_log
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
-SCOPE = "playlist-modify-public playlist-modify-private user-library-modify user-library-read user-read-private user-read-email"
+SCOPE = (
+    "playlist-read-private "
+    "playlist-read-collaborative "
+    "playlist-modify-public "
+    "playlist-modify-private "
+    "user-library-read "
+    "user-library-modify "
+    "user-read-private "
+    "user-read-email"
+)
 
 load_dotenv()
 

@@ -28,7 +28,7 @@ class YandexPuller(BasePuller):
         if platform.system() != "Windows":
             opts.add_argument("--no-sandbox")
             opts.add_argument("--disable-dev-shm-usage")
-        driver = uc.Chrome(options=opts)
+        driver = uc.Chrome(options=opts, version_main=146)
         driver.__class__.__del__ = lambda self: None
         return driver
 

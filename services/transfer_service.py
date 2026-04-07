@@ -1,11 +1,14 @@
 """
 services/transfer_service.py
 
-- Загружает треки из Яндекса, пишет в таблицу tracks (status=pending).
-- Ищет треки в Spotify параллельно (ThreadPoolExecutor).
-- Watchdog-поток: если прогресс не меняется 10 сек — прерывает поиск.
-- Всё что найдено — сохраняет в БД и добавляет в плейлист Spotify.
-- Добавленные треки записывает в verified_tracks.
+Изменения:
+- TRACK_LIMIT импортируется из spotify_api и срезает raw_tracks[:TRACK_LIMIT]
+- _stop_event передаётся в search_track() — потоки реагируют на watchdog мгновенно
+- Результат каждого трека пишется в БД сразу внутри цикла as_completed (не в конце)
+  └─ даже если watchdog сработал на 3-м треке — первые 2 уже сохранены
+- fut.result(timeout=15) вместо 30 — не ждём вечно зависший поток
+- После watchdog triggered — всё найденное всё равно добавляется в плейлист
+- Убрана строка link.from_playlist.copied = True (поля нет в модели Playlist)
 """
 
 import os
@@ -23,6 +26,7 @@ from db.models import LogLevel, Track, TrackStatus, Transfer, VerifiedTrack
 from i18n import t
 from services.log_service import write_log
 from services.spotify_api import (
+    TRACK_LIMIT,
     add_tracks_to_playlist,
     extract_playlist_id,
     search_track,
@@ -44,12 +48,19 @@ def _kind_from_url(url: str) -> str:
 
 
 class _Watchdog:
-    """Прерывает поиск если прогресс не двигался WATCHDOG_TIMEOUT секунд."""
+    """
+    Прерывает поиск если прогресс не двигался WATCHDOG_TIMEOUT секунд.
 
-    def __init__(self, timeout: float) -> None:
+    Исправление: при срабатывании выставляет stop_event — это гарантирует
+    что все потоки в ThreadPoolExecutor выйдут из search_track() немедленно,
+    а не зависнут в time.sleep(retry_after) или в rate limit ожидании.
+    """
+
+    def __init__(self, timeout: float, stop_event: threading.Event) -> None:
         self.timeout = timeout
+        self._stop_event = stop_event  # тот же event что передаётся в search_track
         self._last_tick = _time.monotonic()
-        self._stop = threading.Event()
+        self._internal_stop = threading.Event()
         self.triggered = False
         self._thread = threading.Thread(target=self._run, daemon=True)
 
@@ -60,17 +71,19 @@ class _Watchdog:
         self._thread.start()
 
     def stop(self) -> None:
-        self._stop.set()
+        self._internal_stop.set()
         self._thread.join(timeout=1)
 
     def _run(self) -> None:
-        while not self._stop.is_set():
+        while not self._internal_stop.is_set():
             if _time.monotonic() - self._last_tick > self.timeout:
                 self.triggered = True
-                self._stop.set()
+                # Сигналим всем потокам — они выйдут из search_track немедленно
+                self._stop_event.set()
+                self._internal_stop.set()
                 print(f"\n{t('watchdog.triggered', timeout=int(self.timeout))}")
                 return
-            self._stop.wait(1.0)
+            self._internal_stop.wait(1.0)
 
 
 # ── Вспомогательные функции БД ────────────────────────────────────────────
@@ -98,7 +111,7 @@ def _save_tracks(session, transfer_id, raw_tracks: list[dict]) -> list[Track]:
 
 
 def _update_track(session, track: Track, result: dict | None) -> None:
-    """Проставляет результат поиска на трек."""
+    """Проставляет результат поиска на трек и сразу делает flush в БД."""
     if result is None:
         track.status = TrackStatus.not_found
     elif result["status"] in ("matched", "partial"):
@@ -112,6 +125,8 @@ def _update_track(session, track: Track, result: dict | None) -> None:
         track.spotify_artist = result["artist"]
     else:
         track.status = TrackStatus.not_found
+    # Пишем сразу — не ждём конца всего цикла
+    session.flush()
 
 
 def _save_verified(session, transfer_id, track: Track) -> None:
@@ -131,8 +146,18 @@ def _run_one(link: Transfer, session) -> None:
         f"\n{t('transfer_service.start', **{'from': link.from_playlist.name, 'to': link.to_playlist.name})}"
     )
 
-    # 1. Загружаем треки из Яндекса
+    # 1. Загружаем треки из Яндекса и обрезаем до TRACK_LIMIT
     raw_tracks = get_tracks(uid, kind)
+
+    if len(raw_tracks) > TRACK_LIMIT:
+        print(
+            f"[transfer] TRACK_LIMIT={TRACK_LIMIT}: берём первые {TRACK_LIMIT} из {len(raw_tracks)} треков"
+        )
+        write_log(
+            f"transfer: TRACK_LIMIT applied — {TRACK_LIMIT}/{len(raw_tracks)} tracks"
+        )
+        raw_tracks = raw_tracks[:TRACK_LIMIT]
+
     link.total = len(raw_tracks)
     link.status = "running"
     session.commit()
@@ -148,17 +173,27 @@ def _run_one(link: Transfer, session) -> None:
     print(t("transfer_service.saved_tracks", count=len(track_rows)))
 
     # 3. Поиск в Spotify с watchdog
+    #    _stop_event — единый сигнал для watchdog И для всех потоков search_track
     done_count = 0
-    results: dict[UUID, dict | None] = {}
     _stop_event = threading.Event()
 
+    # track_map нужен чтобы по future найти объект Track
     def _do_search(track: Track):
+        # Быстрая проверка до старта — не запускаем поиск если уже остановлены
         if _stop_event.is_set():
             return track, None
-        return track, search_track(track.yandex_title, track.yandex_artist)
+        return track, search_track(
+            track.yandex_title,
+            track.yandex_artist,
+            stop_event=_stop_event,  # ← ключевое изменение
+        )
 
-    watchdog = _Watchdog(WATCHDOG_TIMEOUT)
+    # Watchdog теперь получает тот же stop_event
+    watchdog = _Watchdog(WATCHDOG_TIMEOUT, _stop_event)
     watchdog.start()
+
+    spotify_ids: list[str] = []
+    matched = partial = not_found = 0
 
     ex = ThreadPoolExecutor(max_workers=MAX_WORKERS)
     try:
@@ -167,23 +202,38 @@ def _run_one(link: Transfer, session) -> None:
 
             try:
                 for fut in as_completed(futures):
-                    if watchdog.triggered:
-                        _stop_event.set()
-                        ex.shutdown(wait=False, cancel_futures=True)
-                        break
-
+                    # Watchdog уже выставил _stop_event — сам цикл продолжаем
+                    # чтобы собрать результаты уже завершившихся future
                     try:
-                        track, result = fut.result(timeout=30)
-                        results[track.id] = result
+                        track, result = fut.result(timeout=15)  # было 30
                     except Exception as e:
                         track = futures[fut]
-                        results[track.id] = None
+                        result = None
                         print(f"\n[run] search error '{track.yandex_title}': {e}")
                         write_log(
                             f"search error: '{track.yandex_title}' — '{track.yandex_artist}' | {e}",
                             level=LogLevel.error,
                             version_id=link.version_id,
                         )
+
+                    # ── Записываем результат в БД сразу ──────────────────
+                    _update_track(session, track, result)
+                    session.commit()  # коммит на каждый трек — не теряем данные
+
+                    if track.status == TrackStatus.matched:
+                        matched += 1
+                        spotify_ids.append(track.spotify_id)
+                        print(f"  [+] {track.yandex_artist} — {track.yandex_title}")
+                    elif track.status == TrackStatus.partial:
+                        partial += 1
+                        spotify_ids.append(track.spotify_id)
+                        print(
+                            f"  [~] {track.yandex_artist} — {track.yandex_title} "
+                            f"→ {track.spotify_artist} — {track.spotify_title}"
+                        )
+                    else:
+                        not_found += 1
+                        print(f"  [-] {track.yandex_artist} — {track.yandex_title}")
 
                     done_count += 1
                     watchdog.tick()
@@ -214,31 +264,8 @@ def _run_one(link: Transfer, session) -> None:
             version_id=link.version_id,
         )
 
-    # 4. Сохраняем результаты поиска в БД
-    matched = partial = not_found = 0
-    spotify_ids: list[str] = []
-
-    for track in track_rows:
-        result = results.get(track.id)
-        _update_track(session, track, result)
-
-        if track.status == TrackStatus.matched:
-            matched += 1
-            spotify_ids.append(track.spotify_id)
-            print(f"  [+] {track.yandex_artist} — {track.yandex_title}")
-        elif track.status == TrackStatus.partial:
-            partial += 1
-            spotify_ids.append(track.spotify_id)
-            print(
-                f"  [~] {track.yandex_artist} — {track.yandex_title} → {track.spotify_artist} — {track.spotify_title}"
-            )
-        else:
-            not_found += 1
-            print(f"  [-] {track.yandex_artist} — {track.yandex_title}")
-
-    session.commit()
-
-    # 5. Добавляем найденные треки в плейлист Spotify
+    # 4. Добавляем найденные треки в плейлист Spotify
+    #    Делаем это даже если watchdog сработал — всё найденное не пропадает
     if spotify_ids:
         print(t("transfer_service.adding_spotify", count=len(spotify_ids)))
         write_log(
@@ -247,7 +274,7 @@ def _run_one(link: Transfer, session) -> None:
         )
         add_tracks_to_playlist(spotify_id, spotify_ids)
 
-        # 6. Помечаем как verified
+        # 5. Помечаем добавленные треки как verified
         for track in track_rows:
             if track.spotify_id and track.spotify_id in spotify_ids:
                 _save_verified(session, link.id, track)
@@ -259,12 +286,6 @@ def _run_one(link: Transfer, session) -> None:
 
     if not watchdog.triggered:
         link.status = "done"
-        link.from_playlist.copied = True
-        write_log(
-            f"playlist copied: '{link.from_playlist.name}' marked as copied",
-            level=LogLevel.info,
-            version_id=link.version_id,
-        )
 
     session.commit()
     write_log(
