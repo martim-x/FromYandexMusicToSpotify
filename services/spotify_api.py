@@ -30,7 +30,7 @@ BASE_URL = "https://api.spotify.com/v1"
 
 # Временное ограничение: обрабатывать не более N треков за один трансфер.
 # Убрать или увеличить когда будешь готов к полному прогону.
-TRACK_LIMIT = 10
+TRACK_LIMIT = 500
 
 # Минимальный интервал между запросами к Spotify Search.
 # 0.5s = ~2 req/s в одном потоке.
@@ -256,7 +256,7 @@ def add_tracks_to_playlist(playlist_id: str, track_ids: list[str]) -> None:
     total = len(track_ids)
     for i in range(0, total, 100):
         batch = [f"spotify:track:{tid}" for tid in track_ids[i : i + 100]]
-        url = f"{BASE_URL}/playlists/{playlist_id}/tracks"
+        url = f"{BASE_URL}/playlists/{playlist_id}/items"
         headers = _headers()
         body = {"uris": batch}
 
